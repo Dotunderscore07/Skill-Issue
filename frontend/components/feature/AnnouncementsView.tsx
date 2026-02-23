@@ -1,0 +1,72 @@
+'use client';
+
+import React, { useState } from 'react';
+import { Card, Badge, Button } from '../ui';
+import { User, Announcement, AnnouncementType } from '../../modules/shared/types';
+
+interface AnnouncementsViewProps {
+  user: User;
+  announcements: Announcement[];
+  onAdd: (text: string, type: AnnouncementType, author: string) => void;
+}
+
+export function AnnouncementsView({ user, announcements, onAdd }: AnnouncementsViewProps) {
+  const [text, setText] = useState('');
+  const [type, setType] = useState<AnnouncementType>('info');
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!text) return;
+    onAdd(text, type, user.name);
+    setText('');
+  };
+
+  return (
+    <div className="max-w-2xl mx-auto space-y-8">
+      {user.role === 'teacher' && (
+        <Card className="p-6">
+          <h3 className="font-bold text-gray-900 mb-4">Post New Announcement</h3>
+          <form onSubmit={handleSubmit} className="space-y-4">
+            <textarea
+              className="w-full p-3 border border-gray-200 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:outline-none"
+              rows={3}
+              placeholder="What's happening in class?"
+              value={text}
+              onChange={(e) => setText(e.target.value)}
+            />
+            <div className="flex justify-between items-center">
+              <select
+                value={type}
+                onChange={(e) => setType(e.target.value as AnnouncementType)}
+                className="p-2 border border-gray-200 rounded-lg text-sm bg-white"
+              >
+                <option value="info">General Info ℹ️</option>
+                <option value="urgent">Urgent 🚨</option>
+                <option value="event">Event 🎉</option>
+              </select>
+              <Button type="submit">Post to Class</Button>
+            </div>
+          </form>
+        </Card>
+      )}
+
+      <div className="space-y-4">
+        <h3 className="font-bold text-gray-900 px-1">Notice Board</h3>
+        {announcements.map((a) => (
+          <Card key={a.id} className="p-5">
+            <div className="flex justify-between items-start mb-2">
+              <div className="flex items-center gap-2">
+                <Badge color={a.type === 'urgent' ? 'red' : a.type === 'event' ? 'green' : 'blue'}>
+                  {a.type.toUpperCase()}
+                </Badge>
+                <span className="text-xs text-gray-500 font-medium">{a.author}</span>
+              </div>
+              <span className="text-xs text-gray-400">{a.date}</span>
+            </div>
+            <p className="text-gray-800 leading-relaxed">{a.text}</p>
+          </Card>
+        ))}
+      </div>
+    </div>
+  );
+}

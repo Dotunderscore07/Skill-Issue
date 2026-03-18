@@ -24,6 +24,8 @@ export function AuthenticatedLayout() {
     setView,
     addAnnouncement,
     addActivity,
+    editActivity,
+    deleteActivity,
     updateAttendance,
     sendMessage,
   } = useAppContext();
@@ -76,6 +78,8 @@ export function AuthenticatedLayout() {
             user={user}
             activities={activities}
             onAddActivity={addActivity}
+            onEditActivity={editActivity}
+            onDeleteActivity={deleteActivity}
           />
         );
       default:

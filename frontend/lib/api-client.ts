@@ -8,16 +8,40 @@ import {
   MoodType,
 } from '../modules/shared/types';
 
-const BASE = '/api';
+const BASE = 'http://localhost:4000/api';
 
 async function request<T>(url: string, options?: RequestInit): Promise<T> {
+  const headers: HeadersInit = {
+    'Content-Type': 'application/json',
+  };
+
+  // Add Auth Token from LocalStorage if available in browser
+  if (typeof window !== 'undefined') {
+    const token = localStorage.getItem('kinderconnect_token');
+    if (token) {
+      headers['x-auth-token'] = token;
+    }
+  }
+
   const res = await fetch(url, {
-    headers: { 'Content-Type': 'application/json' },
+    headers: { ...headers, ...options?.headers },
     ...options,
+    credentials: 'include',
   });
+
   const json = (await res.json()) as { success: boolean; data: T; error?: string };
   if (!json.success) throw new Error(json.error ?? 'API error');
   return json.data;
+}
+
+export class AuthApi {
+  static me() {
+    return request<any>(`${BASE}/auth/me`);
+  }
+
+  static logout() {
+    return request<any>(`${BASE}/auth/logout`, { method: 'POST' });
+  }
 }
 
 // ─── Announcements ────────────────────────────────────────────────────────────
@@ -45,6 +69,19 @@ export class ActivityApi {
     return request<Activity>(`${BASE}/activities`, {
       method: 'POST',
       body: JSON.stringify({ studentId, text, mood }),
+    });
+  }
+
+  static update(id: number, text: string, mood: MoodType) {
+    return request<Activity>(`${BASE}/activities/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify({ text, mood }),
+    });
+  }
+
+  static delete(id: number) {
+    return request<{ deleted: boolean }>(`${BASE}/activities/${id}`, {
+      method: 'DELETE',
     });
   }
 }
@@ -77,5 +114,26 @@ export class MessageApi {
       method: 'POST',
       body: JSON.stringify({ fromId, toId, text }),
     });
+  }
+}
+
+// ─── Students ─────────────────────────────────────────────────────────────────
+export class StudentApi {
+  static getAll() {
+    return request<any[]>(`${BASE}/students`);
+  }
+
+  static linkParent(studentId: string, parentId: string) {
+    return request<any>(`${BASE}/students/${studentId}/link`, {
+      method: 'PUT',
+      body: JSON.stringify({ parentId }),
+    });
+  }
+}
+
+// ─── Users ────────────────────────────────────────────────────────────────────
+export class UserApi {
+  static getAll() {
+    return request<any[]>(`${BASE}/users`);
   }
 }

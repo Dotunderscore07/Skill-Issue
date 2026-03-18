@@ -1,12 +1,38 @@
 'use client';
 
-import React from 'react';
-import { Baby, Send } from 'lucide-react';
-import { MOCK_USERS } from '../../modules/shared/data/mockData';
+import React, { useState } from 'react';
+import { Baby, LogIn, UserPlus } from 'lucide-react';
 import { useAppContext } from '../../modules/shared/context/AppContext';
 
-export function LoginScreen() {
+export function LoginScreen({ onToggleRegister }: { onToggleRegister: () => void }) {
   const { login } = useAppContext();
+  const [id, setId] = useState('');
+  const [password, setPassword] = useState('');
+  const [error, setError] = useState('');
+
+  const handleLogin = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setError('');
+    
+    try {
+      const res = await fetch('http://localhost:4000/api/auth/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({ id, password })
+      });
+      const data = await res.json();
+      
+      if (data.success && data.data) {
+        // Successful login
+        login(data.data.user, data.data.token);
+      } else {
+        setError(data.error || 'Login failed');
+      }
+    } catch (err) {
+      setError('Network error');
+    }
+  };
 
   return (
     <div className="min-h-screen bg-indigo-50 flex items-center justify-center p-4 font-sans">
@@ -16,39 +42,47 @@ export function LoginScreen() {
             <Baby className="w-8 h-8 text-indigo-600" />
           </div>
           <h1 className="text-3xl font-bold text-gray-900">KinderConnect</h1>
-          <p className="text-gray-500">Bridging the gap between home and school.</p>
+          <p className="text-gray-500">Welcome Back!</p>
         </div>
 
-        <div className="space-y-4">
-          <div className="relative">
-            <div className="absolute inset-0 flex items-center">
-              <div className="w-full border-t border-gray-200" />
-            </div>
-            <div className="relative flex justify-center text-sm">
-              <span className="px-2 bg-white text-gray-500">Select a Demo Role</span>
-            </div>
-          </div>
+        {error && <div className="p-3 bg-red-100 text-red-700 rounded-md text-sm">{error}</div>}
 
-          <div className="grid gap-3">
-            {MOCK_USERS.map((u) => (
-              <button
-                key={u.id}
-                onClick={() => login(u.id)}
-                className="flex items-center p-4 border border-gray-200 rounded-xl hover:border-indigo-500 hover:bg-indigo-50 transition-all group"
-              >
-                <span className="text-2xl mr-4 group-hover:scale-110 transition-transform">
-                  {u.avatar}
-                </span>
-                <div className="text-left">
-                  <p className="font-semibold text-gray-900">{u.name}</p>
-                  <p className="text-sm text-gray-500 capitalize">{u.role}</p>
-                </div>
-                <div className="ml-auto opacity-0 group-hover:opacity-100 text-indigo-600">
-                  <Send size={18} />
-                </div>
-              </button>
-            ))}
+        <form onSubmit={handleLogin} className="space-y-4">
+          <div>
+            <label className="block text-sm font-medium text-gray-700">User ID</label>
+            <input 
+              type="text" 
+              required
+              value={id}
+              onChange={e => setId(e.target.value)}
+              className="mt-1 w-full px-4 py-2 border border-gray-300 rounded-xl focus:ring-indigo-500 focus:border-indigo-500"
+              placeholder="Enter your ID"
+            />
           </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700">Password</label>
+            <input 
+              type="password" 
+              required
+              value={password}
+              onChange={e => setPassword(e.target.value)}
+              className="mt-1 w-full px-4 py-2 border border-gray-300 rounded-xl focus:ring-indigo-500 focus:border-indigo-500"
+              placeholder="Enter your password"
+            />
+          </div>
+          <button 
+            type="submit"
+            className="w-full flex justify-center items-center py-3 px-4 border border-transparent rounded-xl text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 transition-colors"
+          >
+            <LogIn className="w-5 h-5 mr-2" />
+            Sign In
+          </button>
+        </form>
+
+        <div className="text-center">
+          <button onClick={onToggleRegister} className="text-sm text-indigo-600 hover:text-indigo-500">
+            Don't have an account? Register here.
+          </button>
         </div>
       </div>
     </div>

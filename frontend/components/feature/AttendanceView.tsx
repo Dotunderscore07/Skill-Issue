@@ -1,10 +1,10 @@
 'use client';
 
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { CheckCircle, Clock, XCircle } from 'lucide-react';
 import { Card, Badge } from '../ui';
-import { User, AttendanceRecord, AttendanceStatus } from '../../modules/shared/types';
-import { MOCK_STUDENTS } from '../../modules/shared/data/mockData';
+import { User, AttendanceRecord, AttendanceStatus, Student } from '../../modules/shared/types';
+import { StudentApi } from '../../lib/api-client';
 
 interface AttendanceViewProps {
   user: User;
@@ -14,33 +14,58 @@ interface AttendanceViewProps {
 
 export function AttendanceView({ user, attendance, onUpdateAttendance }: AttendanceViewProps) {
   const today = new Date().toISOString().split('T')[0];
+  const [students, setStudents] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    StudentApi.getAll()
+      .then(setStudents)
+      .catch((err) => console.error('Failed to load students:', err))
+      .finally(() => setLoading(false));
+  }, []);
+
+  if (loading) return <div className="p-8 text-center text-gray-500">Loading attendance data...</div>;
 
   if (user.role === 'parent') {
-    const myStudent = MOCK_STUDENTS.find((s) => s.id === user.studentId);
+    const myStudent = students.find((s) => s.parentId === user.id);
+    
+    if (!myStudent) {
+      return (
+        <div className="p-8 text-center text-gray-500 bg-white rounded-xl shadow-sm border border-gray-100">
+          <h2 className="text-xl font-bold mb-2 text-gray-800">Hang tight!</h2>
+          <p>Your account is not linked to a student yet. Please ask the Teacher to assign your child to you.</p>
+        </div>
+      );
+    }
+
     const myAttendance = attendance
-      .filter((a) => a.studentId === myStudent?.id)
+      .filter((a) => a.studentId === myStudent.id)
       .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
 
     return (
       <div className="max-w-2xl mx-auto space-y-6">
         <h2 className="text-2xl font-bold text-gray-900">Attendance Record</h2>
         <Card className="divide-y divide-gray-100">
-          {myAttendance.map((record, idx) => (
-            <div key={idx} className="p-4 flex justify-between items-center">
-              <span className="font-medium text-gray-700">{record.date}</span>
-              <Badge
-                color={
-                  record.status === 'present'
-                    ? 'green'
-                    : record.status === 'late'
-                    ? 'yellow'
-                    : 'red'
-                }
-              >
-                {record.status.toUpperCase()}
-              </Badge>
-            </div>
-          ))}
+          {myAttendance.length > 0 ? (
+            myAttendance.map((record, idx) => (
+              <div key={idx} className="p-4 flex justify-between items-center">
+                <span className="font-medium text-gray-700">{record.date}</span>
+                <Badge
+                  color={
+                    record.status === 'present'
+                      ? 'green'
+                      : record.status === 'late'
+                      ? 'yellow'
+                      : 'red'
+                  }
+                >
+                  {record.status.toUpperCase()}
+                </Badge>
+              </div>
+            ))
+          ) : (
+            <div className="p-4 text-center text-gray-500">No attendance records found.</div>
+          )}
         </Card>
       </div>
     );
@@ -64,7 +89,7 @@ export function AttendanceView({ user, attendance, onUpdateAttendance }: Attenda
             </tr>
           </thead>
           <tbody className="divide-y divide-gray-100">
-            {MOCK_STUDENTS.map((student) => {
+            {students.map((student) => {
               const record = attendance.find(
                 (a) => a.studentId === student.id && a.date === today
               );
@@ -73,7 +98,7 @@ export function AttendanceView({ user, attendance, onUpdateAttendance }: Attenda
               return (
                 <tr key={student.id} className="hover:bg-gray-50/50">
                   <td className="p-4 flex items-center gap-3">
-                    <span className="text-xl">{student.avatar}</span>
+                    <span className="text-xl">👶</span>
                     <span className="font-medium text-gray-900">{student.name}</span>
                   </td>
                   <td className="p-4">

@@ -1,10 +1,10 @@
 'use client';
 
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { Users, MessageCircle, Calendar, Plus } from 'lucide-react';
 import { Card, Badge, Button } from '../ui';
-import { User, Student, Announcement, AttendanceRecord } from '../../modules/shared/types';
-import { MOCK_STUDENTS, MOCK_USERS } from '../../modules/shared/data/mockData';
+import { User, Announcement, AttendanceRecord } from '../../modules/shared/types';
+import { StudentApi, UserApi } from '../../lib/api-client';
 
 interface TeacherDashboardProps {
   user: User;
@@ -19,9 +19,35 @@ export function TeacherDashboard({
   announcements,
   onNavigate,
 }: TeacherDashboardProps) {
+  const [students, setStudents] = useState<any[]>([]);
+  const [parents, setParents] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    Promise.all([StudentApi.getAll(), UserApi.getAll()])
+      .then(([studentData, userData]) => {
+        setStudents(studentData);
+        setParents(userData.filter(u => u.role === 'parent'));
+      })
+      .catch(err => console.error('Failed to load roster:', err))
+      .finally(() => setLoading(false));
+  }, []);
+
+  const handleLinkParent = async (studentId: string, parentId: string) => {
+    if (!parentId) return;
+    try {
+      await StudentApi.linkParent(studentId, parentId);
+      // Update local state to reflect the change visually
+      setStudents(prev => prev.map(s => s.id === studentId ? { ...s, parentId } : s));
+      alert('Parent successfully linked to student!');
+    } catch (err: any) {
+      alert('Failed to link parent: ' + err.message);
+    }
+  };
+
   const today = new Date().toISOString().split('T')[0];
   const presentCount = attendance.filter((a) => a.date === today && a.status === 'present').length;
-  const totalStudents = MOCK_STUDENTS.length;
+  const totalStudents = students.length;
 
   return (
     <div className="space-y-6">
@@ -44,7 +70,7 @@ export function TeacherDashboard({
           <div>
             <p className="text-sm text-gray-500 font-medium">Attendance</p>
             <p className="text-2xl font-bold">
-              {presentCount} / {totalStudents}
+              {presentCount} / {totalStudents || '-'}
             </p>
           </div>
         </Card>
@@ -72,26 +98,34 @@ export function TeacherDashboard({
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <Card className="flex flex-col">
           <div className="p-4 border-b border-gray-100 flex justify-between items-center">
-            <h3 className="font-bold text-lg">Class Roster</h3>
-            <span className="text-xs text-gray-400">Total: {MOCK_STUDENTS.length}</span>
+            <h3 className="font-bold text-lg">Class Roster & Parent Mapping</h3>
+            <span className="text-xs text-gray-400">Total: {students.length}</span>
           </div>
           <div className="divide-y divide-gray-100">
-            {MOCK_STUDENTS.map((student: Student) => (
-              <div key={student.id} className="p-4 flex items-center gap-3 hover:bg-gray-50">
-                <span className="text-2xl">{student.avatar}</span>
+            {loading ? <p className="p-4 text-gray-500">Loading roster...</p> : students.map((student) => (
+              <div key={student.id} className="p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 hover:bg-gray-50">
                 <div className="flex-1">
                   <p className="font-medium text-gray-900">{student.name}</p>
-                  <p className="text-xs text-gray-500">
-                    Parent: {MOCK_USERS.find((u) => u.id === student.parentId)?.name}
-                  </p>
                 </div>
-                <Button
-                  variant="secondary"
-                  className="text-xs px-2 py-1 h-8"
-                  onClick={() => onNavigate('messages')}
-                >
-                  Message
-                </Button>
+                <div className="flex items-center gap-2">
+                  <select 
+                    className="text-sm border rounded p-1 text-gray-600 bg-white"
+                    value={student.parentId || ""}
+                    onChange={(e) => handleLinkParent(student.id, e.target.value)}
+                  >
+                    <option value="" disabled>Assign Parent...</option>
+                    {parents.map(p => (
+                      <option key={p.id} value={p.id}>{p.name} (Parent)</option>
+                    ))}
+                  </select>
+                  <Button
+                    variant="secondary"
+                    className="text-xs px-2 py-1 h-8"
+                    onClick={() => onNavigate('messages')}
+                  >
+                    Message
+                  </Button>
+                </div>
               </div>
             ))}
           </div>

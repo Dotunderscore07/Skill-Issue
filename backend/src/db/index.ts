@@ -1,0 +1,173 @@
+import { Pool, Client } from 'pg';
+import dotenv from 'dotenv';
+import bcrypt from 'bcrypt';
+import { MOCK_USERS, MOCK_STUDENTS, MOCK_CLASSES, INITIAL_ANNOUNCEMENTS, INITIAL_ACTIVITIES, INITIAL_ATTENDANCE, INITIAL_MESSAGES } from '../models/mockData';
+
+dotenv.config();
+
+const dbUrl = process.env.DATABASE_URL || 'postgres://postgres:MyDb0720@localhost:5432/kinderconnect';
+const parsedUrl = new URL(dbUrl);
+const dbName = parsedUrl.pathname.replace('/', '') || 'kinderconnect';
+parsedUrl.pathname = '/postgres'; // Connect to default postgres db first
+const defaultDbUrl = parsedUrl.toString();
+
+export let pool: Pool;
+
+export const query = async (text: string, params?: any[]) => {
+  if (!pool) throw new Error("Pool not initialized");
+  return pool.query(text, params);
+};
+
+export const initDb = async () => {
+  try {
+    // 1. Connect to default 'postgres' database to check/create the target database
+    const client = new Client({ connectionString: defaultDbUrl });
+    await client.connect();
+
+    const res = await client.query(`SELECT datname FROM pg_catalog.pg_database WHERE datname = $1`, [dbName]);
+    
+    if (res.rowCount === 0) {
+      console.log(`Database '${dbName}' not found, creating it...`);
+      await client.query(`CREATE DATABASE "${dbName}"`);
+      console.log(`Database '${dbName}' created successfully.`);
+    } else {
+      console.log(`Database '${dbName}' already exists.`);
+    }
+    await client.end();
+
+    // 2. Now connect to the target database and initialize schema
+    pool = new Pool({ connectionString: dbUrl });
+
+    // Drop existing tables for a clean slate during dev
+    await pool.query(`
+      DROP TABLE IF EXISTS messages CASCADE;
+      DROP TABLE IF EXISTS attendance_records CASCADE;
+      DROP TABLE IF EXISTS activities CASCADE;
+      DROP TABLE IF EXISTS announcements CASCADE;
+      DROP TABLE IF EXISTS classes CASCADE;
+      DROP TABLE IF EXISTS students CASCADE;
+      DROP TABLE IF EXISTS users CASCADE;
+    `);
+
+    // Create tables
+    await pool.query(`
+      CREATE TABLE users (
+        id VARCHAR(50) PRIMARY KEY,
+        name VARCHAR(255) NOT NULL,
+        role VARCHAR(50) NOT NULL,
+        "studentId" VARCHAR(50),
+        "classId" VARCHAR(50),
+        password VARCHAR(255) NOT NULL
+      );
+
+      CREATE TABLE students (
+        id VARCHAR(50) PRIMARY KEY,
+        name VARCHAR(255) NOT NULL,
+        "classId" VARCHAR(50),
+        "parentId" VARCHAR(50)
+      );
+
+      CREATE TABLE classes (
+        id VARCHAR(50) PRIMARY KEY,
+        name VARCHAR(255) NOT NULL,
+        "teacherId" VARCHAR(50)
+      );
+
+      CREATE TABLE announcements (
+        id SERIAL PRIMARY KEY,
+        text TEXT NOT NULL,
+        date VARCHAR(50) NOT NULL,
+        author VARCHAR(255) NOT NULL,
+        type VARCHAR(50) NOT NULL
+      );
+
+      CREATE TABLE activities (
+        id SERIAL PRIMARY KEY,
+        "studentId" VARCHAR(50) NOT NULL,
+        text TEXT NOT NULL,
+        date VARCHAR(50) NOT NULL,
+        mood VARCHAR(50) NOT NULL
+      );
+
+      CREATE TABLE attendance_records (
+        id SERIAL PRIMARY KEY,
+        date VARCHAR(50) NOT NULL,
+        "studentId" VARCHAR(50) NOT NULL,
+        status VARCHAR(50) NOT NULL
+      );
+
+      CREATE TABLE messages (
+        id SERIAL PRIMARY KEY,
+        "fromId" VARCHAR(50) NOT NULL,
+        "toId" VARCHAR(50) NOT NULL,
+        text TEXT NOT NULL,
+        timestamp VARCHAR(50) NOT NULL,
+        read BOOLEAN DEFAULT false
+      );
+    `);
+
+    // Insert mock users with hashed passwords
+    const salt = await bcrypt.genSalt(10);
+    const defaultPassword = await bcrypt.hash('password123', salt);
+
+    for (const user of MOCK_USERS) {
+      await pool.query(
+        'INSERT INTO users (id, name, role, "studentId", "classId", password) VALUES ($1, $2, $3, $4, $5, $6) ON CONFLICT (id) DO NOTHING',
+        [user.id, user.name, user.role, user.studentId || null, user.classId || null, defaultPassword]
+      );
+    }
+
+    for (const student of MOCK_STUDENTS) {
+      await pool.query(
+        'INSERT INTO students (id, name, "classId", "parentId") VALUES ($1, $2, $3, $4) ON CONFLICT (id) DO NOTHING',
+        [student.id, student.name, student.classId, student.parentId || null]
+      );
+    }
+
+    for (const cls of MOCK_CLASSES) {
+      await pool.query(
+        'INSERT INTO classes (id, name, "teacherId") VALUES ($1, $2, $3) ON CONFLICT (id) DO NOTHING',
+        [cls.id, cls.name, cls.teacherId]
+      );
+    }
+
+    for (const ann of INITIAL_ANNOUNCEMENTS) {
+      await pool.query(
+        'INSERT INTO announcements (id, text, date, author, type) VALUES ($1, $2, $3, $4, $5) ON CONFLICT (id) DO NOTHING',
+        [ann.id, ann.text, ann.date, ann.author, ann.type]
+      );
+    }
+
+    for (const act of INITIAL_ACTIVITIES) {
+      await pool.query(
+        'INSERT INTO activities (id, "studentId", text, date, mood) VALUES ($1, $2, $3, $4, $5) ON CONFLICT (id) DO NOTHING',
+        [act.id, act.studentId, act.text, act.date, act.mood]
+      );
+    }
+
+    for (const att of INITIAL_ATTENDANCE) {
+      await pool.query(
+        'INSERT INTO attendance_records (date, "studentId", status) VALUES ($1, $2, $3)',
+        [att.date, att.studentId, att.status]
+      );
+    }
+
+    for (const msg of INITIAL_MESSAGES) {
+      try {
+        await pool.query(
+          'INSERT INTO messages (id, "fromId", "toId", text, timestamp, read) VALUES ($1, $2, $3, $4, $5, $6) ON CONFLICT (id) DO NOTHING',
+          [msg.id, msg.fromId, msg.toId, msg.text, msg.timestamp, msg.read]
+        );
+      } catch (e) { /* swallow duplicate */ }
+    }
+
+    // Fix sequences pushed out of sync by manual ID inserts
+    await pool.query(`SELECT setval('activities_id_seq', COALESCE((SELECT MAX(id) FROM activities), 1));`);
+    await pool.query(`SELECT setval('announcements_id_seq', COALESCE((SELECT MAX(id) FROM announcements), 1));`);
+    await pool.query(`SELECT setval('messages_id_seq', COALESCE((SELECT MAX(id) FROM messages), 1));`);
+
+    console.log('Database initialized with mock data successfully');
+  } catch (error) {
+    console.error('Error initializing database:', error);
+  }
+};

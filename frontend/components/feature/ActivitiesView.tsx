@@ -1,46 +1,89 @@
 'use client';
 
-import React, { useState } from 'react';
-import { BookOpen } from 'lucide-react';
+import React, { useEffect, useState } from 'react';
+import { BookOpen, Trash, Edit } from 'lucide-react';
 import { Card, Badge, Button } from '../ui';
 import { User, Activity, MoodType } from '../../modules/shared/types';
-import { MOCK_STUDENTS } from '../../modules/shared/data/mockData';
+import { StudentApi } from '../../lib/api-client';
 
 interface ActivitiesViewProps {
   user: User;
   activities: Activity[];
   onAddActivity: (studentId: string, text: string, mood: MoodType) => void;
+  onEditActivity: (id: number, text: string, mood: MoodType) => void;
+  onDeleteActivity: (id: number) => void;
 }
 
-export function ActivitiesView({ user, activities, onAddActivity }: ActivitiesViewProps) {
+export function ActivitiesView({
+  user,
+  activities,
+  onAddActivity,
+  onEditActivity,
+  onDeleteActivity,
+}: ActivitiesViewProps) {
+  const [students, setStudents] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    StudentApi.getAll()
+      .then(setStudents)
+      .catch((err) => console.error('Failed to load students', err))
+      .finally(() => setLoading(false));
+  }, []);
+
+  if (loading) return <div className="p-8 text-center text-gray-500">Loading activities...</div>;
+
   if (user.role === 'teacher') {
-    return <TeacherActivityPost onAdd={onAddActivity} />;
+    return (
+      <TeacherActivityFeed
+        students={students}
+        activities={activities}
+        onAdd={onAddActivity}
+        onEdit={onEditActivity}
+        onDelete={onDeleteActivity}
+      />
+    );
   }
-  return <ParentActivityFeed user={user} activities={activities} />;
+  return <ParentActivityFeed user={user} students={students} activities={activities} />;
 }
 
-// ─── Teacher: Post Activity ───────────────────────────────────────────────────
-interface TeacherActivityPostProps {
+// ─── Teacher: Post & Edit Activity ────────────────────────────────────────────────
+interface TeacherActivityFeedProps {
+  students: any[];
+  activities: Activity[];
   onAdd: (studentId: string, text: string, mood: MoodType) => void;
+  onEdit: (id: number, text: string, mood: MoodType) => void;
+  onDelete: (id: number) => void;
 }
 
-function TeacherActivityPost({ onAdd }: TeacherActivityPostProps) {
-  const [selectedStudent, setSelectedStudent] = useState(MOCK_STUDENTS[0].id);
+function TeacherActivityFeed({ students, activities, onAdd, onEdit, onDelete }: TeacherActivityFeedProps) {
+  const [selectedStudent, setSelectedStudent] = useState(students[0]?.id || '');
   const [activityText, setActivityText] = useState('');
   const [mood, setMood] = useState<MoodType>('happy');
 
+  const [editingId, setEditingId] = useState<number | null>(null);
+  const [editBuffer, setEditBuffer] = useState('');
+  const [editMood, setEditMood] = useState<MoodType>('happy');
+
   const handlePost = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!activityText) return;
+    if (!activityText || !selectedStudent) return;
     onAdd(selectedStudent, activityText, mood);
     setActivityText('');
-    alert('Update posted!');
+  };
+
+  const handleSaveEdit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (editingId && editBuffer) {
+      onEdit(editingId, editBuffer, editMood);
+      setEditingId(null);
+    }
   };
 
   const moods: MoodType[] = ['happy', 'neutral', 'sad', 'energetic'];
 
   return (
-    <div className="max-w-xl mx-auto">
+    <div className="max-w-xl mx-auto space-y-8">
       <Card className="p-6">
         <h2 className="text-xl font-bold mb-6">Daily Activity Update</h2>
         <form onSubmit={handlePost} className="space-y-4">
@@ -51,7 +94,7 @@ function TeacherActivityPost({ onAdd }: TeacherActivityPostProps) {
               value={selectedStudent}
               onChange={(e) => setSelectedStudent(e.target.value)}
             >
-              {MOCK_STUDENTS.map((s) => (
+              {students.map((s) => (
                 <option key={s.id} value={s.id}>
                   {s.name}
                 </option>
@@ -81,7 +124,7 @@ function TeacherActivityPost({ onAdd }: TeacherActivityPostProps) {
                   className={`px-3 py-1 rounded-full text-sm capitalize border ${
                     mood === m
                       ? 'bg-indigo-100 border-indigo-500 text-indigo-700'
-                      : 'border-gray-200'
+                      : 'border-gray-200 hover:bg-gray-50 cursor-pointer text-gray-600'
                   }`}
                 >
                   {m}
@@ -94,6 +137,84 @@ function TeacherActivityPost({ onAdd }: TeacherActivityPostProps) {
           </Button>
         </form>
       </Card>
+
+      <div className="space-y-4">
+        <h3 className="font-bold text-gray-800 text-lg">Manage Recent Activities</h3>
+        {activities.map((act) => {
+          const studentName = students.find((s) => s.id === act.studentId)?.name || 'Unknown';
+          
+          if (editingId === act.id) {
+            return (
+              <Card key={act.id} className="p-4 border-l-4 border-l-indigo-500">
+                <form onSubmit={handleSaveEdit} className="space-y-3">
+                  <div className="flex justify-between">
+                    <span className="font-bold text-sm text-gray-600">Editing for: {studentName}</span>
+                  </div>
+                  <textarea
+                    className="w-full p-2 border border-gray-300 rounded-lg text-sm"
+                    rows={2}
+                    value={editBuffer}
+                    onChange={(e) => setEditBuffer(e.target.value)}
+                  />
+                  <div className="flex gap-2">
+                    {moods.map((m) => (
+                      <button
+                        key={m}
+                        type="button"
+                        onClick={() => setEditMood(m)}
+                        className={`px-2 py-1 rounded text-xs capitalize ${
+                          editMood === m ? 'bg-indigo-100 text-indigo-700' : 'bg-gray-100 text-gray-600'
+                        }`}
+                      >
+                        {m}
+                      </button>
+                    ))}
+                  </div>
+                  <div className="flex justify-end gap-2 mt-2">
+                    <button type="button" onClick={() => setEditingId(null)} className="px-3 py-1 text-sm bg-gray-100 rounded text-gray-600">Cancel</button>
+                    <button type="submit" className="px-3 py-1 text-sm bg-indigo-600 rounded text-white font-medium">Save</button>
+                  </div>
+                </form>
+              </Card>
+            );
+          }
+
+          return (
+            <Card key={act.id} className="p-4 flex gap-4">
+              <div className="flex-1">
+                <div className="flex justify-between items-center mb-1">
+                  <span className="font-bold text-gray-900">{studentName}</span>
+                  <span className="text-xs text-gray-400">{act.date}</span>
+                </div>
+                <div className="mb-2">
+                  <Badge color="blue">{act.mood}</Badge>
+                </div>
+                <p className="text-sm text-gray-700">{act.text}</p>
+              </div>
+              <div className="flex flex-col gap-2 justify-start border-l border-gray-100 pl-4">
+                <button
+                  onClick={() => {
+                    setEditingId(act.id);
+                    setEditBuffer(act.text);
+                    setEditMood(act.mood);
+                  }}
+                  className="p-1.5 text-gray-400 hover:text-indigo-600 hover:bg-indigo-50 rounded"
+                >
+                  <Edit size={16} />
+                </button>
+                <button
+                  onClick={() => {
+                    if (confirm('Delete this activity?')) onDelete(act.id);
+                  }}
+                  className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded"
+                >
+                  <Trash size={16} />
+                </button>
+              </div>
+            </Card>
+          );
+        })}
+      </div>
     </div>
   );
 }
@@ -101,12 +222,21 @@ function TeacherActivityPost({ onAdd }: TeacherActivityPostProps) {
 // ─── Parent: Activity Feed ────────────────────────────────────────────────────
 interface ParentActivityFeedProps {
   user: User;
+  students: any[];
   activities: Activity[];
 }
 
-function ParentActivityFeed({ user, activities }: ParentActivityFeedProps) {
-  const student = MOCK_STUDENTS.find((s) => s.id === user.studentId);
-  if (!student) return null;
+function ParentActivityFeed({ user, students, activities }: ParentActivityFeedProps) {
+  const student = students.find((s) => s.parentId === user.id);
+  
+  if (!student) {
+    return (
+      <div className="p-8 text-center text-gray-500 bg-white rounded-xl shadow-sm border border-gray-100">
+        <h2 className="text-xl font-bold mb-2 text-gray-800">Hang tight!</h2>
+        <p>Your account is not linked to a student yet. Activities will appear here once assigned.</p>
+      </div>
+    );
+  }
 
   const myActivities = activities
     .filter((a) => a.studentId === student.id)
@@ -122,20 +252,27 @@ function ParentActivityFeed({ user, activities }: ParentActivityFeedProps) {
       </div>
 
       <div className="relative pl-8 border-l-2 border-indigo-100 space-y-8">
-        {myActivities.map((act) => (
-          <div key={act.id} className="relative">
-            <div className="absolute -left-[39px] top-0 w-5 h-5 rounded-full bg-indigo-500 border-4 border-white shadow-sm" />
-            <div className="bg-white p-4 rounded-xl shadow-sm border border-gray-100">
-              <div className="flex justify-between items-start mb-2">
-                <span className="text-xs font-bold text-gray-400 uppercase tracking-wide">
-                  {act.date}
-                </span>
-                <Badge color="blue">{act.mood}</Badge>
+        {myActivities.length > 0 ? (
+          myActivities.map((act) => (
+            <div key={act.id} className="relative">
+              <div className="absolute -left-[39px] top-0 w-5 h-5 rounded-full bg-indigo-500 border-4 border-white shadow-sm" />
+              <div className="bg-white p-4 rounded-xl shadow-sm border border-gray-100">
+                <div className="flex justify-between items-start mb-2">
+                  <span className="text-xs font-bold text-gray-400 uppercase tracking-wide">
+                    {act.date}
+                  </span>
+                  <Badge color="blue">{act.mood}</Badge>
+                </div>
+                <p className="text-gray-800">{act.text}</p>
               </div>
-              <p className="text-gray-800">{act.text}</p>
             </div>
+          ))
+        ) : (
+          <div className="text-gray-500 italic relative">
+             <div className="absolute -left-[39px] top-0 w-5 h-5 rounded-full bg-gray-300 border-4 border-white shadow-sm" />
+             No activities posted yet.
           </div>
-        ))}
+        )}
       </div>
     </div>
   );

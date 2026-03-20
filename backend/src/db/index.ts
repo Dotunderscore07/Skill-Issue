@@ -54,6 +54,7 @@ export const initDb = async () => {
       CREATE TABLE users (
         id VARCHAR(50) PRIMARY KEY,
         name VARCHAR(255) NOT NULL,
+        phone VARCHAR(20) UNIQUE NOT NULL,
         role VARCHAR(50) NOT NULL,
         "studentId" VARCHAR(50),
         "classId" VARCHAR(50),
@@ -112,8 +113,8 @@ export const initDb = async () => {
 
     for (const user of MOCK_USERS) {
       await pool.query(
-        'INSERT INTO users (id, name, role, "studentId", "classId", password) VALUES ($1, $2, $3, $4, $5, $6) ON CONFLICT (id) DO NOTHING',
-        [user.id, user.name, user.role, user.studentId || null, user.classId || null, defaultPassword]
+        'INSERT INTO users (id, name, phone, role, "studentId", "classId", password) VALUES ($1, $2, $3, $4, $5, $6, $7) ON CONFLICT (id) DO NOTHING',
+        [user.id, user.name, user.phone, user.role, user.studentId || null, user.classId || null, defaultPassword]
       );
     }
 

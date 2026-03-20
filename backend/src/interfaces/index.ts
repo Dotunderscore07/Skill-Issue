@@ -6,6 +6,7 @@ export type MoodType = 'happy' | 'neutral' | 'sad' | 'energetic';
 export interface IUser {
   id: string;
   name: string;
+  phone: string;
   role: UserRole;
   avatar: string;
   classId?: string;

@@ -7,25 +7,27 @@ import { v4 as uuidv4 } from 'uuid';
 export class AuthController {
   public static async register(req: Request, res: Response): Promise<void> {
     try {
-      const { name, role, id, password } = req.body;
+      const { name, phone, password } = req.body;
       
-      if (!name || !role || !id || !password) {
+      if (!name || !phone || !password) {
         res.status(400).json({ success: false, data: null, error: 'Missing required fields' });
         return;
       }
 
-      const existingUser = await query('SELECT * FROM users WHERE id = $1', [id]);
+      const existingUser = await query('SELECT * FROM users WHERE phone = $1', [phone]);
       if (existingUser.rows.length > 0) {
-        res.status(409).json({ success: false, data: null, error: 'User already exists' });
+        res.status(409).json({ success: false, data: null, error: 'Phone number already registered' });
         return;
       }
 
       const salt = await bcrypt.genSalt(10);
       const hashedPassword = await bcrypt.hash(password, salt);
+      const id = uuidv4();
+      const role = 'parent';
 
       await query(
-        'INSERT INTO users (id, name, role, password) VALUES ($1, $2, $3, $4)',
-        [id, name, role, hashedPassword]
+        'INSERT INTO users (id, name, phone, role, password) VALUES ($1, $2, $3, $4, $5)',
+        [id, name, phone, role, hashedPassword]
       );
 
       const payload = { user: { id, role } };
@@ -38,7 +40,7 @@ export class AuthController {
         maxAge: 24 * 60 * 60 * 1000
       });
 
-      res.status(201).json({ success: true, data: { id, name, role }, error: null });
+      res.status(201).json({ success: true, data: { id, name, phone, role }, error: null });
     } catch (error) {
       console.error('Error during registration:', error);
       res.status(500).json({ success: false, data: null, error: 'Internal server error' });
@@ -47,18 +49,18 @@ export class AuthController {
 
   public static async login(req: Request, res: Response): Promise<void> {
     try {
-      const { id, password } = req.body;
+      const { phone, password } = req.body;
 
-      if (!id || !password) {
-        res.status(400).json({ success: false, data: null, error: 'Missing ID or password' });
+      if (!phone || !password) {
+        res.status(400).json({ success: false, data: null, error: 'Missing phone or password' });
         return;
       }
 
-      const result = await query('SELECT * FROM users WHERE id = $1', [id]);
+      const result = await query('SELECT * FROM users WHERE phone = $1', [phone]);
       const user = result.rows[0];
 
       if (!user) {
-        res.status(401).json({ success: false, data: null, error: 'Invalid ID or password' });
+        res.status(401).json({ success: false, data: null, error: 'Invalid phone or password' });
         return;
       }
 
@@ -84,7 +86,7 @@ export class AuthController {
         maxAge: 24 * 60 * 60 * 1000
       });
 
-      res.json({ success: true, data: { user: { id: user.id, name: user.name, role: user.role } }, error: null });
+      res.json({ success: true, data: { user: { id: user.id, name: user.name, phone: user.phone, role: user.role } }, error: null });
     } catch (error) {
       console.error('Error during login:', error);
       res.status(500).json({ success: false, data: null, error: 'Internal server error' });
@@ -94,7 +96,7 @@ export class AuthController {
   public static async me(req: Request, res: Response): Promise<void> {
     try {
       const authReq = req as any;
-      const result = await query('SELECT id, name, role, "studentId", "classId" FROM users WHERE id = $1', [authReq.user.id]);
+      const result = await query('SELECT id, name, phone, role, "studentId", "classId" FROM users WHERE id = $1', [authReq.user.id]);
       if (result.rows.length === 0) {
         res.status(404).json({ success: false, data: null, error: 'User not found' });
         return;

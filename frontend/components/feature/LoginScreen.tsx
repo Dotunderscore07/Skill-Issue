@@ -6,7 +6,7 @@ import { useAppContext } from '../../modules/shared/context/AppContext';
 
 export function LoginScreen({ onToggleRegister }: { onToggleRegister: () => void }) {
   const { login } = useAppContext();
-  const [id, setId] = useState('');
+  const [phone, setPhone] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
 
@@ -19,7 +19,7 @@ export function LoginScreen({ onToggleRegister }: { onToggleRegister: () => void
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include',
-        body: JSON.stringify({ id, password })
+        body: JSON.stringify({ phone, password })
       });
       const data = await res.json();
       
@@ -49,14 +49,14 @@ export function LoginScreen({ onToggleRegister }: { onToggleRegister: () => void
 
         <form onSubmit={handleLogin} className="space-y-4">
           <div>
-            <label className="block text-sm font-medium text-gray-700">User ID</label>
+            <label className="block text-sm font-medium text-gray-700">Phone Number</label>
             <input 
-              type="text" 
+              type="tel" 
               required
-              value={id}
-              onChange={e => setId(e.target.value)}
+              value={phone}
+              onChange={e => setPhone(e.target.value)}
               className="mt-1 w-full px-4 py-2 border border-gray-300 rounded-xl focus:ring-indigo-500 focus:border-indigo-500"
-              placeholder="Enter your ID"
+              placeholder="Enter your phone number"
             />
           </div>
           <div>

@@ -4,10 +4,10 @@ import React, { useState } from 'react';
 import { UserPlus, ArrowLeft } from 'lucide-react';
 
 export function RegisterScreen({ onToggleLogin }: { onToggleLogin: () => void }) {
-  const [id, setId] = useState('');
   const [name, setName] = useState('');
-  const [role, setRole] = useState('parent');
+  const [phone, setPhone] = useState('');
   const [password, setPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
 
@@ -16,12 +16,17 @@ export function RegisterScreen({ onToggleLogin }: { onToggleLogin: () => void })
     setError('');
     setSuccess('');
     
+    if (password !== confirmPassword) {
+      setError('Passwords do not match');
+      return;
+    }
+
     try {
       const res = await fetch('http://localhost:4000/api/auth/register', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include',
-        body: JSON.stringify({ name, role, email: id + '@example.com', password, id }) // Using ID as email stub
+        body: JSON.stringify({ name, phone, password })
       });
       const data = await res.json();
       
@@ -52,18 +57,6 @@ export function RegisterScreen({ onToggleLogin }: { onToggleLogin: () => void })
 
         <form onSubmit={handleRegister} className="space-y-4">
           <div>
-            <label className="block text-sm font-medium text-gray-700">User ID</label>
-            <input 
-              type="text" 
-              required
-              value={id}
-              onChange={e => setId(e.target.value)}
-              className="mt-1 w-full px-4 py-2 border border-gray-300 rounded-xl focus:ring-indigo-500 focus:border-indigo-500"
-              placeholder="E.g. p3, t2"
-            />
-          </div>
-          
-          <div>
             <label className="block text-sm font-medium text-gray-700">Full Name</label>
             <input 
               type="text" 
@@ -76,15 +69,15 @@ export function RegisterScreen({ onToggleLogin }: { onToggleLogin: () => void })
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-gray-700">Role</label>
-            <select 
-              value={role}
-              onChange={e => setRole(e.target.value)}
+            <label className="block text-sm font-medium text-gray-700">Phone Number</label>
+            <input 
+              type="tel" 
+              required
+              value={phone}
+              onChange={e => setPhone(e.target.value)}
               className="mt-1 w-full px-4 py-2 border border-gray-300 rounded-xl focus:ring-indigo-500 focus:border-indigo-500"
-            >
-              <option value="parent">Parent</option>
-              <option value="teacher">Teacher</option>
-            </select>
+              placeholder="e.g. 1234567890"
+            />
           </div>
 
           <div>
@@ -96,6 +89,18 @@ export function RegisterScreen({ onToggleLogin }: { onToggleLogin: () => void })
               onChange={e => setPassword(e.target.value)}
               className="mt-1 w-full px-4 py-2 border border-gray-300 rounded-xl focus:ring-indigo-500 focus:border-indigo-500"
               placeholder="Choose a password"
+            />
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700">Confirm Password</label>
+            <input 
+              type="password" 
+              required
+              value={confirmPassword}
+              onChange={e => setConfirmPassword(e.target.value)}
+              className="mt-1 w-full px-4 py-2 border border-gray-300 rounded-xl focus:ring-indigo-500 focus:border-indigo-500"
+              placeholder="Confirm your password"
             />
           </div>
           <button 

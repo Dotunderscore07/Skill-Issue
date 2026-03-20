@@ -44,6 +44,10 @@ export const initDb = async () => {
       DROP TABLE IF EXISTS attendance_records CASCADE;
       DROP TABLE IF EXISTS activities CASCADE;
       DROP TABLE IF EXISTS announcements CASCADE;
+      DROP TABLE IF EXISTS class_teachers CASCADE;
+      DROP TABLE IF EXISTS class_subjects CASCADE;
+      DROP TABLE IF EXISTS parent_students CASCADE;
+      DROP TABLE IF EXISTS subjects CASCADE;
       DROP TABLE IF EXISTS classes CASCADE;
       DROP TABLE IF EXISTS students CASCADE;
       DROP TABLE IF EXISTS users CASCADE;
@@ -56,22 +60,41 @@ export const initDb = async () => {
         name VARCHAR(255) NOT NULL,
         phone VARCHAR(20) UNIQUE NOT NULL,
         role VARCHAR(50) NOT NULL,
-        "studentId" VARCHAR(50),
-        "classId" VARCHAR(50),
         password VARCHAR(255) NOT NULL
+      );
+
+      CREATE TABLE classes (
+        id VARCHAR(50) PRIMARY KEY,
+        name VARCHAR(255) NOT NULL
       );
 
       CREATE TABLE students (
         id VARCHAR(50) PRIMARY KEY,
         name VARCHAR(255) NOT NULL,
-        "classId" VARCHAR(50),
-        "parentId" VARCHAR(50)
+        "classId" VARCHAR(50) REFERENCES classes(id) ON DELETE SET NULL
       );
 
-      CREATE TABLE classes (
+      CREATE TABLE subjects (
         id VARCHAR(50) PRIMARY KEY,
-        name VARCHAR(255) NOT NULL,
-        "teacherId" VARCHAR(50)
+        name VARCHAR(255) NOT NULL
+      );
+
+      CREATE TABLE class_teachers (
+        class_id VARCHAR(50) REFERENCES classes(id) ON DELETE CASCADE,
+        teacher_id VARCHAR(50) REFERENCES users(id) ON DELETE CASCADE,
+        PRIMARY KEY (class_id, teacher_id)
+      );
+
+      CREATE TABLE class_subjects (
+        class_id VARCHAR(50) REFERENCES classes(id) ON DELETE CASCADE,
+        subject_id VARCHAR(50) REFERENCES subjects(id) ON DELETE CASCADE,
+        PRIMARY KEY (class_id, subject_id)
+      );
+
+      CREATE TABLE parent_students (
+        parent_id VARCHAR(50) REFERENCES users(id) ON DELETE CASCADE,
+        student_id VARCHAR(50) REFERENCES students(id) ON DELETE CASCADE,
+        PRIMARY KEY (parent_id, student_id)
       );
 
       CREATE TABLE announcements (
@@ -113,24 +136,29 @@ export const initDb = async () => {
 
     for (const user of MOCK_USERS) {
       await pool.query(
-        'INSERT INTO users (id, name, phone, role, "studentId", "classId", password) VALUES ($1, $2, $3, $4, $5, $6, $7) ON CONFLICT (id) DO NOTHING',
-        [user.id, user.name, user.phone, user.role, user.studentId || null, user.classId || null, defaultPassword]
-      );
-    }
-
-    for (const student of MOCK_STUDENTS) {
-      await pool.query(
-        'INSERT INTO students (id, name, "classId", "parentId") VALUES ($1, $2, $3, $4) ON CONFLICT (id) DO NOTHING',
-        [student.id, student.name, student.classId, student.parentId || null]
+        'INSERT INTO users (id, name, phone, role, password) VALUES ($1, $2, $3, $4, $5) ON CONFLICT (id) DO NOTHING',
+        [user.id, user.name, user.phone, user.role, defaultPassword]
       );
     }
 
     for (const cls of MOCK_CLASSES) {
       await pool.query(
-        'INSERT INTO classes (id, name, "teacherId") VALUES ($1, $2, $3) ON CONFLICT (id) DO NOTHING',
-        [cls.id, cls.name, cls.teacherId]
+        'INSERT INTO classes (id, name) VALUES ($1, $2) ON CONFLICT (id) DO NOTHING',
+        [cls.id, cls.name]
       );
     }
+
+    for (const student of MOCK_STUDENTS) {
+      await pool.query(
+        'INSERT INTO students (id, name, "classId") VALUES ($1, $2, $3) ON CONFLICT (id) DO NOTHING',
+        [student.id, student.name, student.classId]
+      );
+    }
+
+    // Populate Join Tables for mock relationships
+    await pool.query('INSERT INTO class_teachers (class_id, teacher_id) VALUES ($1, $2) ON CONFLICT DO NOTHING', ['c1', 't1']);
+    await pool.query('INSERT INTO parent_students (parent_id, student_id) VALUES ($1, $2) ON CONFLICT DO NOTHING', ['p1', 's1']);
+    await pool.query('INSERT INTO parent_students (parent_id, student_id) VALUES ($1, $2) ON CONFLICT DO NOTHING', ['p2', 's2']);
 
     for (const ann of INITIAL_ANNOUNCEMENTS) {
       await pool.query(

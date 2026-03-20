@@ -9,19 +9,19 @@ import {
 } from '../interfaces';
 
 export const MOCK_USERS: IUser[] = [
-  { id: 't1', name: 'Ms. Johnson', phone: '1111111111', role: 'teacher', avatar: '👩‍🏫', classId: 'c1' },
-  { id: 'p1', name: 'Mr. Smith', phone: '2222222222', role: 'parent', avatar: '👨‍💼', studentId: 's1' },
-  { id: 'p2', name: 'Mrs. Garcia', phone: '3333333333', role: 'parent', avatar: '👩‍⚕️', studentId: 's2' },
+  { id: 't1', name: 'Ms. Johnson', phone: '1111111111', role: 'teacher', avatar: '👩‍🏫' },
+  { id: 'p1', name: 'Mr. Smith', phone: '2222222222', role: 'parent', avatar: '👨‍💼' },
+  { id: 'p2', name: 'Mrs. Garcia', phone: '3333333333', role: 'parent', avatar: '👩‍⚕️' },
 ];
 
 export const MOCK_STUDENTS: IStudent[] = [
-  { id: 's1', name: 'Alex Smith', classId: 'c1', parentId: 'p1', avatar: '👦' },
-  { id: 's2', name: 'Bella Garcia', classId: 'c1', parentId: 'p2', avatar: '👧' },
-  { id: 's3', name: 'Charlie Brown', classId: 'c1', parentId: 'p3', avatar: '🧒' },
+  { id: 's1', name: 'Alex Smith', classId: 'c1', avatar: '👦' },
+  { id: 's2', name: 'Bella Garcia', classId: 'c1', avatar: '👧' },
+  { id: 's3', name: 'Charlie Brown', classId: 'c1', avatar: '🧒' },
 ];
 
 export const MOCK_CLASSES: IClass[] = [
-  { id: 'c1', name: 'Sunshine Kindergarten (K1)', teacherId: 't1' },
+  { id: 'c1', name: 'Sunshine Kindergarten (K1)' },
 ];
 
 export const INITIAL_ANNOUNCEMENTS: IAnnouncement[] = [

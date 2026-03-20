@@ -4,7 +4,7 @@ import { Request as ExpressRequest, Response as ExpressResponse } from 'express'
 export class UserController {
   static async getAll(req: ExpressRequest, res: ExpressResponse) {
     try {
-      const result = await query('SELECT id, name, role, "studentId", "classId" FROM users');
+      const result = await query('SELECT id, name, phone, role FROM users');
       res.json({ success: true, data: result.rows });
     } catch (err) {
       console.error(err);
@@ -15,7 +15,7 @@ export class UserController {
   static async getById(req: ExpressRequest, res: ExpressResponse) {
     try {
       const { id } = req.params;
-      const result = await query('SELECT id, name, role, "studentId", "classId" FROM users WHERE id = $1', [id]);
+      const result = await query('SELECT id, name, phone, role FROM users WHERE id = $1', [id]);
       if (result.rows.length === 0) {
         return res.status(404).json({ success: false, data: null, error: 'User not found' });
       }
@@ -30,7 +30,11 @@ export class UserController {
 export class StudentController {
   static async getAll(req: ExpressRequest, res: ExpressResponse) {
     try {
-      const result = await query('SELECT * FROM students');
+      const result = await query(`
+        SELECT s.*, (
+          SELECT parent_id FROM parent_students ps WHERE ps.student_id = s.id LIMIT 1
+        ) as "parentId" FROM students s
+      `);
       res.json({ success: true, data: result.rows });
     } catch (err) {
       console.error(err);
@@ -47,16 +51,14 @@ export class StudentController {
         return res.status(400).json({ success: false, data: null, error: 'parentId is required' });
       }
 
+      await query('DELETE FROM parent_students WHERE student_id = $1', [studentId]);
+      
       const result = await query(
-        'UPDATE students SET "parentId" = $1 WHERE id = $2 RETURNING *',
+        'INSERT INTO parent_students (parent_id, student_id) VALUES ($1, $2) RETURNING *',
         [parentId, studentId]
       );
 
-      if (result.rows.length === 0) {
-        return res.status(404).json({ success: false, data: null, error: 'Student not found' });
-      }
-
-      res.json({ success: true, data: result.rows[0] });
+      res.json({ success: true, data: { studentId, parentId } });
     } catch (err) {
       console.error(err);
       res.status(500).json({ success: false, data: null, error: 'Internal server error' });
@@ -128,7 +130,7 @@ export class ActivityController {
       let queryParams: any[] = [];
 
       if (user.role === 'parent') {
-        queryStr += ' WHERE "studentId" IN (SELECT id FROM students WHERE "parentId" = $1)';
+        queryStr += ' WHERE "studentId" IN (SELECT student_id FROM parent_students WHERE parent_id = $1)';
         queryParams.push(user.id);
       } else if (req.query.studentId) {
         queryStr += ' WHERE "studentId" = $1';
@@ -195,7 +197,7 @@ export class AttendanceController {
       let queryParams: any[] = [];
 
       if (user.role === 'parent') {
-        queryStr += ' WHERE "studentId" IN (SELECT id FROM students WHERE "parentId" = $1)';
+        queryStr += ' WHERE "studentId" IN (SELECT student_id FROM parent_students WHERE parent_id = $1)';
         queryParams.push(user.id);
       } else if (req.query.studentId) {
         queryStr += ' WHERE "studentId" = $1';

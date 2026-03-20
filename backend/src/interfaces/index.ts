@@ -9,22 +9,18 @@ export interface IUser {
   phone: string;
   role: UserRole;
   avatar: string;
-  classId?: string;
-  studentId?: string;
 }
 
 export interface IStudent {
   id: string;
   name: string;
   classId: string;
-  parentId: string;
   avatar: string;
 }
 
 export interface IClass {
   id: string;
   name: string;
-  teacherId: string;
 }
 
 export interface IAnnouncement {

@@ -96,7 +96,7 @@ export class AuthController {
   public static async me(req: Request, res: Response): Promise<void> {
     try {
       const authReq = req as any;
-      const result = await query('SELECT id, name, phone, role, "studentId", "classId" FROM users WHERE id = $1', [authReq.user.id]);
+      const result = await query('SELECT id, name, phone, role FROM users WHERE id = $1', [authReq.user.id]);
       if (result.rows.length === 0) {
         res.status(404).json({ success: false, data: null, error: 'User not found' });
         return;

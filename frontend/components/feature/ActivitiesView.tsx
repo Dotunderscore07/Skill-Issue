@@ -21,24 +21,28 @@ export function ActivitiesView({
   onEditActivity,
   onDeleteActivity,
 }: ActivitiesViewProps) {
-  const { students, selectedChild, selectedClass, authLoading: loading } = useAppContext();
+  const { students, selectedChild, selectedClass, selectedDate, setSelectedDate, authLoading: loading } = useAppContext();
 
   if (loading) return <div className="p-8 text-center text-gray-500">Loading activities...</div>;
 
   if (user.role === 'teacher') {
     const classStudents = students.filter(s => s.classId === selectedClass?.id);
+    const dateActivities = activities.filter(a => a.date === selectedDate);
     return (
       <TeacherActivityFeed
         students={classStudents}
-        activities={activities}
+        activities={dateActivities}
         selectedClassName={selectedClass?.name || ''}
+        selectedDate={selectedDate}
+        onSetDate={setSelectedDate}
         onAdd={onAddActivity}
         onEdit={onEditActivity}
         onDelete={onDeleteActivity}
       />
     );
   }
-  return <ParentActivityFeed user={user} student={selectedChild} activities={activities} />;
+  const myActivities = activities.filter(a => a.date === selectedDate);
+  return <ParentActivityFeed user={user} student={selectedChild} activities={myActivities} selectedDate={selectedDate} onSetDate={setSelectedDate} />;
 }
 
 // ─── Teacher: Post & Edit Activity ────────────────────────────────────────────────
@@ -46,12 +50,14 @@ interface TeacherActivityFeedProps {
   students: any[];
   activities: Activity[];
   selectedClassName: string;
+  selectedDate: string;
+  onSetDate: (d: string) => void;
   onAdd: (studentId: string, text: string, mood: MoodType) => void;
   onEdit: (id: number, text: string, mood: MoodType) => void;
   onDelete: (id: number) => void;
 }
 
-function TeacherActivityFeed({ students, activities, selectedClassName, onAdd, onEdit, onDelete }: TeacherActivityFeedProps) {
+function TeacherActivityFeed({ students, activities, selectedClassName, selectedDate, onSetDate, onAdd, onEdit, onDelete }: TeacherActivityFeedProps) {
   const [selectedStudent, setSelectedStudent] = useState('');
 
   useEffect(() => {
@@ -86,61 +92,80 @@ function TeacherActivityFeed({ students, activities, selectedClassName, onAdd, o
 
   return (
     <div className="max-w-xl mx-auto space-y-8">
+      <div className="flex justify-between items-center mb-6">
+        <div>
+          <h2 className="text-2xl font-bold text-gray-900">Activity Log</h2>
+          <p className="text-gray-500 text-sm">Update daily events for your students</p>
+        </div>
+        <input 
+          type="date"
+          className="p-2 border rounded-lg bg-white shadow-sm focus:ring-2 focus:ring-indigo-500 outline-none"
+          value={selectedDate}
+          onChange={(e) => onSetDate(e.target.value)}
+        />
+      </div>
+
       <Card className="p-6">
         <div className="flex justify-between items-center mb-6">
-          <h2 className="text-xl font-bold">Daily Activity Update</h2>
+          <h2 className="text-xl font-bold text-gray-800">New Entry</h2>
           {selectedClassName && <Badge color="indigo">{selectedClassName}</Badge>}
         </div>
-        <form onSubmit={handlePost} className="space-y-4">
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Student</label>
-            <select
-              className="w-full p-2 border border-gray-300 rounded-lg"
-              value={selectedStudent}
-              onChange={(e) => setSelectedStudent(e.target.value)}
-            >
-              {students.map((s) => (
-                <option key={s.id} value={s.id}>
-                  {s.name}
-                </option>
-              ))}
-            </select>
+        {selectedDate !== new Date().toISOString().split('T')[0] ? (
+          <div className="p-4 bg-amber-50 border border-amber-100 rounded-lg text-amber-700 text-sm italic">
+            Entries can only be posted for the current day.
           </div>
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Activity Description
-            </label>
-            <textarea
-              className="w-full p-3 border border-gray-300 rounded-lg"
-              rows={3}
-              placeholder="E.g., Ate all their lunch, played with blocks..."
-              value={activityText}
-              onChange={(e) => setActivityText(e.target.value)}
-            />
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Mood</label>
-            <div className="flex gap-4">
-              {moods.map((m) => (
-                <button
-                  key={m}
-                  type="button"
-                  onClick={() => setMood(m)}
-                  className={`px-3 py-1 rounded-full text-sm capitalize border ${
-                    mood === m
-                      ? 'bg-indigo-100 border-indigo-500 text-indigo-700'
-                      : 'border-gray-200 hover:bg-gray-50 cursor-pointer text-gray-600'
-                  }`}
-                >
-                  {m}
-                </button>
-              ))}
+        ) : (
+          <form onSubmit={handlePost} className="space-y-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Student</label>
+              <select
+                className="w-full p-2 border border-gray-300 rounded-lg"
+                value={selectedStudent}
+                onChange={(e) => setSelectedStudent(e.target.value)}
+              >
+                {students.map((s) => (
+                  <option key={s.id} value={s.id}>
+                    {s.name}
+                  </option>
+                ))}
+              </select>
             </div>
-          </div>
-          <Button type="submit" className="w-full mt-4">
-            Share with Parent
-          </Button>
-        </form>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Activity Description
+              </label>
+              <textarea
+                className="w-full p-3 border border-gray-300 rounded-lg"
+                rows={3}
+                placeholder="E.g., Ate all their lunch, played with blocks..."
+                value={activityText}
+                onChange={(e) => setActivityText(e.target.value)}
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Mood</label>
+              <div className="flex gap-4">
+                {moods.map((m) => (
+                  <button
+                    key={m}
+                    type="button"
+                    onClick={() => setMood(m)}
+                    className={`px-3 py-1 rounded-full text-sm capitalize border ${
+                      mood === m
+                        ? 'bg-indigo-100 border-indigo-500 text-indigo-700'
+                        : 'border-gray-200 hover:bg-gray-50 cursor-pointer text-gray-600'
+                    }`}
+                  >
+                    {m}
+                  </button>
+                ))}
+              </div>
+            </div>
+            <Button type="submit" className="w-full mt-4">
+              Share with Parent
+            </Button>
+          </form>
+        )}
       </Card>
 
       <div className="space-y-4">
@@ -203,7 +228,8 @@ function TeacherActivityFeed({ students, activities, selectedClassName, onAdd, o
                     setEditBuffer(act.text);
                     setEditMood(act.mood);
                   }}
-                  className="p-1.5 text-gray-400 hover:text-indigo-600 hover:bg-indigo-50 rounded"
+                  disabled={selectedDate !== new Date().toISOString().split('T')[0]}
+                  className={`p-1.5 rounded ${selectedDate !== new Date().toISOString().split('T')[0] ? 'text-gray-200 cursor-not-allowed' : 'text-gray-400 hover:text-indigo-600 hover:bg-indigo-50'}`}
                 >
                   <Edit size={16} />
                 </button>
@@ -211,7 +237,8 @@ function TeacherActivityFeed({ students, activities, selectedClassName, onAdd, o
                   onClick={() => {
                     if (confirm('Delete this activity?')) onDelete(act.id);
                   }}
-                  className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded"
+                  disabled={selectedDate !== new Date().toISOString().split('T')[0]}
+                  className={`p-1.5 rounded ${selectedDate !== new Date().toISOString().split('T')[0] ? 'text-gray-200 cursor-not-allowed' : 'text-gray-400 hover:text-red-600 hover:bg-red-50'}`}
                 >
                   <Trash size={16} />
                 </button>
@@ -229,9 +256,11 @@ interface ParentActivityFeedProps {
   user: User;
   student: any;
   activities: Activity[];
+  selectedDate: string;
+  onSetDate: (d: string) => void;
 }
 
-function ParentActivityFeed({ user, student, activities }: ParentActivityFeedProps) {
+function ParentActivityFeed({ user, student, activities, selectedDate, onSetDate }: ParentActivityFeedProps) {
   
   if (!student) {
     return (
@@ -248,11 +277,19 @@ function ParentActivityFeed({ user, student, activities }: ParentActivityFeedPro
 
   return (
     <div className="max-w-2xl mx-auto space-y-6">
-      <div className="flex items-center gap-3 mb-6">
-        <div className="p-3 bg-indigo-100 rounded-full text-indigo-600">
-          <BookOpen />
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
+        <div className="flex items-center gap-3">
+          <div className="p-3 bg-indigo-100 rounded-full text-indigo-600">
+            <BookOpen />
+          </div>
+          <h2 className="text-2xl font-bold">{student.name}&apos;s Log</h2>
         </div>
-        <h2 className="text-2xl font-bold">Activity Log: {student.name}</h2>
+        <input 
+          type="date"
+          className="p-2 border rounded-lg bg-white shadow-sm focus:ring-2 focus:ring-indigo-500 outline-none"
+          value={selectedDate}
+          onChange={(e) => onSetDate(e.target.value)}
+        />
       </div>
 
       <div className="relative pl-8 border-l-2 border-indigo-100 space-y-8">

@@ -9,7 +9,7 @@ import {
 } from '../interfaces';
 
 export const MOCK_USERS: IUser[] = [
-  { id: 't1', name: 'Ms. Johnson', phone: '1111111111', role: 'teacher', avatar: '👩‍🏫' },
+  { id: 't1', name: 'Ms. Johnson', phone: '1111111111', role: 'teacher', avatar: '👩‍🏫', classId: 'c1' },
   { id: 'p1', name: 'Mr. Smith', phone: '2222222222', role: 'parent', avatar: '👨‍💼' },
   { id: 'p2', name: 'Mrs. Garcia', phone: '3333333333', role: 'parent', avatar: '👩‍⚕️' },
 ];

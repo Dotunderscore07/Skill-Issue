@@ -31,15 +31,18 @@ interface AppContextValue {
   activities: Activity[];
   attendance: AttendanceRecord[];
   messages: Message[];
+  allUsers: User[];
   students: Student[];
   classes: Class[];
   selectedChild: Student | null;
   selectedClass: Class | null;
+  selectedDate: string;
   login: (userData: User, token: string) => void;
   logout: () => void;
   setView: (view: ViewType) => void;
   setSelectedChild: (student: Student) => void;
   setSelectedClass: (cls: Class) => void;
+  setSelectedDate: (date: string) => void;
   addAnnouncement: (text: string, type: AnnouncementType, author: string) => void;
   addActivity: (studentId: string, text: string, mood: MoodType) => void;
   editActivity: (id: number, text: string, mood: MoodType) => void;
@@ -50,7 +53,7 @@ interface AppContextValue {
 
 const AppContext = createContext<AppContextValue | null>(null);
 
-import { AnnouncementApi, ActivityApi, AttendanceApi, MessageApi, AuthApi, StudentApi, ClassApi } from '../../../lib/api-client';
+import { AnnouncementApi, ActivityApi, AttendanceApi, MessageApi, AuthApi, StudentApi, ClassApi, UserApi } from '../../../lib/api-client';
 
 export function AppProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
@@ -61,10 +64,12 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const [activities, setActivities] = useState<Activity[]>([]);
   const [attendance, setAttendance] = useState<AttendanceRecord[]>([]);
   const [messages, setMessages] = useState<Message[]>([]);
+  const [allUsers, setAllUsers] = useState<User[]>([]);
   const [students, setStudents] = useState<Student[]>([]);
   const [classes, setClasses] = useState<Class[]>([]);
   const [selectedChild, setSelectedChild] = useState<Student | null>(null);
   const [selectedClass, setSelectedClass] = useState<Class | null>(null);
+  const [selectedDate, setSelectedDate] = useState<string>(new Date().toISOString().split('T')[0]);
 
   // Hydrate session on mount
   React.useEffect(() => {
@@ -90,16 +95,18 @@ export function AppProvider({ children }: { children: ReactNode }) {
         AttendanceApi.getAll(),
         StudentApi.getAll(),
         ClassApi.getAll(),
-      ]).then(([anns, acts, atts, studs, clss]) => {
+        UserApi.getAll(),
+      ]).then(([anns, acts, atts, studs, clss, allUsrs]) => {
         setAnnouncements(anns);
         setActivities(acts);
         setAttendance(atts);
         setStudents(studs);
         setClasses(clss);
+        setAllUsers(allUsrs);
 
         // Auto-select first child if parent
         if (user?.role === 'parent') {
-          const myChildren = studs.filter(s => s.parentId === user.id);
+          const myChildren = studs.filter((s: Student) => s.parentId === user.id);
           if (myChildren.length > 0 && !selectedChild) {
             setSelectedChild(myChildren[0]);
           }
@@ -118,6 +125,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
       setAttendance([]);
       setStudents([]);
       setClasses([]);
+      setAllUsers([]);
       setSelectedChild(null);
       setSelectedClass(null);
     }
@@ -221,15 +229,18 @@ export function AppProvider({ children }: { children: ReactNode }) {
         activities,
         attendance,
         messages,
+        allUsers,
         students,
         classes,
         selectedChild,
         selectedClass,
+        selectedDate,
         login,
         logout,
         setView,
         setSelectedChild,
         setSelectedClass,
+        setSelectedDate,
         addAnnouncement,
         addActivity,
         editActivity,

@@ -28,10 +28,12 @@ export function TeacherDashboard({
   onNavigate,
 }: TeacherDashboardProps) {
   const { 
-    students: allStudents, 
+    students: allStudents,
     classes: allClasses, 
     selectedClass, 
     setSelectedClass,
+    selectedDate,
+    setSelectedDate,
     authLoading: loading 
   } = useAppContext();
 
@@ -55,10 +57,10 @@ export function TeacherDashboard({
 
   const today = new Date().toISOString().split('T')[0];
   
-  const classStudents = allStudents.filter(s => s.classId === selectedClass?.id);
+  const classStudents = allStudents.filter((s) => s.classId === selectedClass?.id);
   const totalStudents = classStudents.length;
   const presentCount = attendance.filter(
-    (a) => a.date === today && a.status === 'present' && classStudents.some(s => s.id === a.studentId)
+    (a: AttendanceRecord) => a.date === selectedDate && a.status === 'present' && classStudents.some((s) => s.id === a.studentId)
   ).length;
 
   return (
@@ -87,9 +89,17 @@ export function TeacherDashboard({
             <span>today.</span>
           </div>
         </div>
-        <Button onClick={() => onNavigate('announcements')}>
-          <Plus size={18} /> New Announcement
-        </Button>
+        <div className="flex items-center gap-3">
+          <input 
+            type="date"
+            className="p-2 border rounded-lg bg-white shadow-sm focus:ring-2 focus:ring-indigo-500 outline-none text-sm"
+            value={selectedDate}
+            onChange={(e) => setSelectedDate(e.target.value)}
+          />
+          <Button onClick={() => onNavigate('announcements')}>
+            <Plus size={18} /> New Announcement
+          </Button>
+        </div>
       </div>
 
       {/* Stats Grid */}
@@ -133,7 +143,7 @@ export function TeacherDashboard({
             <span className="text-xs text-gray-400">Total: {totalStudents}</span>
           </div>
           <div className="divide-y divide-gray-100">
-            {loading ? <p className="p-4 text-gray-500">Loading roster...</p> : classStudents.map((student) => (
+            {loading ? <p className="p-4 text-gray-500">Loading roster...</p> : classStudents.map((student: any) => (
               <div key={student.id} className="p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 hover:bg-gray-50">
                 <div className="flex-1">
                   <p className="font-medium text-gray-900">{student.name}</p>

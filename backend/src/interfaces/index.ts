@@ -9,6 +9,7 @@ export interface IUser {
   phone: string;
   role: UserRole;
   avatar: string;
+  classId?: string; // For teachers
 }
 
 export interface IStudent {

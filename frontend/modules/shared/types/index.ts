@@ -9,6 +9,7 @@ export interface User {
   name: string;
   role: UserRole;
   avatar: string;
+  classId?: string;
 }
 
 export interface Class {

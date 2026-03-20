@@ -24,10 +24,12 @@ export function ParentDashboard({ user, activities, announcements }: ParentDashb
     students, 
     selectedChild, 
     setSelectedChild,
+    selectedDate,
+    setSelectedDate,
     authLoading: loading 
   } = useAppContext();
 
-  const myChildren = students.filter(s => s.parentId === user.id);
+  const myChildren = students.filter((s) => s.parentId === user.id);
 
   if (loading) return <div className="p-8 text-center text-gray-500">Loading your dashboard...</div>;
 
@@ -41,34 +43,44 @@ export function ParentDashboard({ user, activities, announcements }: ParentDashb
   }
 
   // The backend already filters `activities` for only this parent's students
-  const recentActivities = activities.filter(a => a.studentId === selectedChild.id);
+  const recentActivities = activities.filter((a: Activity) => a.studentId === selectedChild.id && a.date === selectedDate);
 
   return (
     <div className="space-y-6">
       {/* Dynamic Multi-Child Toggle Tab */}
       {myChildren.length > 1 && (
-        <div className="flex bg-white rounded-lg p-1 w-full max-w-sm border shadow-sm">
-          {myChildren.map(child => (
-            <button
-              key={child.id}
-              onClick={() => setSelectedChild(child)}
-              className={`flex-1 py-1 px-3 text-sm font-medium rounded-md transition-colors ${selectedChild.id === child.id ? 'bg-indigo-100 text-indigo-700' : 'text-gray-500 hover:text-gray-900'}`}
-            >
-              {child.name}
-            </button>
-          ))}
+        <div className="flex bg-white rounded-lg p-1 w-full max-w-sm border shadow-sm overflow-x-auto no-scrollbar">
+          <div className="flex flex-nowrap min-w-full gap-1">
+            {myChildren.map(child => (
+              <button
+                key={child.id}
+                onClick={() => setSelectedChild(child)}
+                className={`flex-1 whitespace-nowrap py-1.5 px-4 text-sm font-medium rounded-md transition-all ${selectedChild.id === child.id ? 'bg-indigo-600 text-white shadow-sm' : 'text-gray-500 hover:text-gray-900 hover:bg-gray-50'}`}
+              >
+                {child.name}
+              </button>
+            ))}
+          </div>
         </div>
       )}
 
-      <div className="flex items-center gap-4 bg-white p-6 rounded-2xl shadow-sm border border-gray-100">
-        <div className="w-16 h-16 bg-blue-100 rounded-full flex items-center justify-center text-4xl shadow-inner">
-          👶
+      <div className="flex items-center justify-between bg-white p-6 rounded-2xl shadow-sm border border-gray-100">
+        <div className="flex items-center gap-4">
+          <div className="w-16 h-16 bg-blue-100 rounded-full flex items-center justify-center text-4xl shadow-inner">
+            👶
+          </div>
+          <div>
+            <p className="text-sm font-medium text-indigo-600 mb-1">{getGreeting()}, {user.name}!</p>
+            <h2 className="text-2xl font-bold text-gray-900">{selectedChild.name}&apos;s Profile</h2>
+            <p className="text-gray-500">KinderConnect Updates</p>
+          </div>
         </div>
-        <div>
-          <p className="text-sm font-medium text-indigo-600 mb-1">{getGreeting()}, {user.name}!</p>
-          <h2 className="text-2xl font-bold text-gray-900">{selectedChild.name}&apos;s Profile</h2>
-          <p className="text-gray-500">KinderConnect Updates</p>
-        </div>
+        <input 
+          type="date"
+          className="p-2 border rounded-lg bg-white shadow-sm focus:ring-2 focus:ring-indigo-500 outline-none"
+          value={selectedDate}
+          onChange={(e) => setSelectedDate(e.target.value)}
+        />
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">

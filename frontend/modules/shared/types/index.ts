@@ -9,8 +9,11 @@ export interface User {
   name: string;
   role: UserRole;
   avatar: string;
-  classId?: string;
-  studentId?: string;
+}
+
+export interface Class {
+  id: string;
+  name: string;
 }
 
 export interface Student {

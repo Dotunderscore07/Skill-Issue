@@ -4,7 +4,7 @@ import React, { useEffect, useState } from 'react';
 import { BookOpen, Bell } from 'lucide-react';
 import { Card } from '../ui';
 import { User, Activity, Announcement } from '../../modules/shared/types';
-import { StudentApi } from '../../lib/api-client';
+import { useAppContext } from '../../modules/shared/context/AppContext';
 
 const getGreeting = () => {
   const hour = new Date().getHours();
@@ -20,26 +20,18 @@ interface ParentDashboardProps {
 }
 
 export function ParentDashboard({ user, activities, announcements }: ParentDashboardProps) {
-  const [children, setChildren] = useState<any[]>([]);
-  const [selectedChild, setSelectedChild] = useState<any>(null);
-  const [loading, setLoading] = useState(true);
+  const { 
+    students, 
+    selectedChild, 
+    setSelectedChild,
+    authLoading: loading 
+  } = useAppContext();
 
-  useEffect(() => {
-    StudentApi.getAll()
-      .then((allStudents) => {
-        const myChildren = allStudents.filter((s) => s.parentId === user.id);
-        setChildren(myChildren);
-        if (myChildren.length > 0) {
-          setSelectedChild(myChildren[0]);
-        }
-      })
-      .catch((err) => console.error('Failed to load student:', err))
-      .finally(() => setLoading(false));
-  }, [user.id]);
+  const myChildren = students.filter(s => s.parentId === user.id);
 
   if (loading) return <div className="p-8 text-center text-gray-500">Loading your dashboard...</div>;
 
-  if (children.length === 0 || !selectedChild) {
+  if (myChildren.length === 0 || !selectedChild) {
     return (
       <div className="p-8 text-center text-gray-500 bg-white rounded-xl shadow-sm border border-gray-100">
         <h2 className="text-xl font-bold mb-2 text-gray-800">Hang tight!</h2>
@@ -54,9 +46,9 @@ export function ParentDashboard({ user, activities, announcements }: ParentDashb
   return (
     <div className="space-y-6">
       {/* Dynamic Multi-Child Toggle Tab */}
-      {children.length > 1 && (
+      {myChildren.length > 1 && (
         <div className="flex bg-white rounded-lg p-1 w-full max-w-sm border shadow-sm">
-          {children.map(child => (
+          {myChildren.map(child => (
             <button
               key={child.id}
               onClick={() => setSelectedChild(child)}

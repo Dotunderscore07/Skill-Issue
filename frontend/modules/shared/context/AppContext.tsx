@@ -11,6 +11,8 @@ import {
   AnnouncementType,
   MoodType,
   ViewType,
+  Student,
+  Class,
 } from '../types';
 import {
   MOCK_USERS,
@@ -29,9 +31,15 @@ interface AppContextValue {
   activities: Activity[];
   attendance: AttendanceRecord[];
   messages: Message[];
+  students: Student[];
+  classes: Class[];
+  selectedChild: Student | null;
+  selectedClass: Class | null;
   login: (userData: User, token: string) => void;
   logout: () => void;
   setView: (view: ViewType) => void;
+  setSelectedChild: (student: Student) => void;
+  setSelectedClass: (cls: Class) => void;
   addAnnouncement: (text: string, type: AnnouncementType, author: string) => void;
   addActivity: (studentId: string, text: string, mood: MoodType) => void;
   editActivity: (id: number, text: string, mood: MoodType) => void;
@@ -42,7 +50,7 @@ interface AppContextValue {
 
 const AppContext = createContext<AppContextValue | null>(null);
 
-import { AnnouncementApi, ActivityApi, AttendanceApi, MessageApi, AuthApi } from '../../../lib/api-client';
+import { AnnouncementApi, ActivityApi, AttendanceApi, MessageApi, AuthApi, StudentApi, ClassApi } from '../../../lib/api-client';
 
 export function AppProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
@@ -53,6 +61,10 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const [activities, setActivities] = useState<Activity[]>([]);
   const [attendance, setAttendance] = useState<AttendanceRecord[]>([]);
   const [messages, setMessages] = useState<Message[]>([]);
+  const [students, setStudents] = useState<Student[]>([]);
+  const [classes, setClasses] = useState<Class[]>([]);
+  const [selectedChild, setSelectedChild] = useState<Student | null>(null);
+  const [selectedClass, setSelectedClass] = useState<Class | null>(null);
 
   // Hydrate session on mount
   React.useEffect(() => {
@@ -76,17 +88,40 @@ export function AppProvider({ children }: { children: ReactNode }) {
         AnnouncementApi.getAll(),
         ActivityApi.getAll(),
         AttendanceApi.getAll(),
-      ]).then(([anns, acts, atts]) => {
+        StudentApi.getAll(),
+        ClassApi.getAll(),
+      ]).then(([anns, acts, atts, studs, clss]) => {
         setAnnouncements(anns);
         setActivities(acts);
         setAttendance(atts);
+        setStudents(studs);
+        setClasses(clss);
+
+        // Auto-select first child if parent
+        if (user?.role === 'parent') {
+          const myChildren = studs.filter(s => s.parentId === user.id);
+          if (myChildren.length > 0 && !selectedChild) {
+            setSelectedChild(myChildren[0]);
+          }
+        }
+        
+        // Auto-select first class if teacher
+        if (user?.role === 'teacher') {
+          if (clss.length > 0 && !selectedClass) {
+            setSelectedClass(clss[0]);
+          }
+        }
       }).catch(err => console.error("Failed to load initial data:", err));
     } else {
       setAnnouncements([]);
       setActivities([]);
       setAttendance([]);
+      setStudents([]);
+      setClasses([]);
+      setSelectedChild(null);
+      setSelectedClass(null);
     }
-  }, [token]);
+  }, [token, user?.id, user?.role]);
 
   const login = (userData: User, authToken: string) => {
     setUser(userData);
@@ -186,9 +221,15 @@ export function AppProvider({ children }: { children: ReactNode }) {
         activities,
         attendance,
         messages,
+        students,
+        classes,
+        selectedChild,
+        selectedClass,
         login,
         logout,
         setView,
+        setSelectedChild,
+        setSelectedClass,
         addAnnouncement,
         addActivity,
         editActivity,

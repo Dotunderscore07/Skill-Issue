@@ -4,7 +4,8 @@ import React, { useEffect, useState } from 'react';
 import { Users, MessageCircle, Calendar, Plus } from 'lucide-react';
 import { Card, Badge, Button } from '../ui';
 import { User, Announcement, AttendanceRecord } from '../../modules/shared/types';
-import { StudentApi, UserApi, ClassApi } from '../../lib/api-client';
+import { useAppContext } from '../../modules/shared/context/AppContext';
+import { StudentApi, UserApi } from '../../lib/api-client';
 
 const getGreeting = () => {
   const hour = new Date().getHours();
@@ -26,34 +27,27 @@ export function TeacherDashboard({
   announcements,
   onNavigate,
 }: TeacherDashboardProps) {
-  const [students, setStudents] = useState<any[]>([]);
-  const [parents, setParents] = useState<any[]>([]);
-  const [loading, setLoading] = useState(true);
+  const { 
+    students: allStudents, 
+    classes: allClasses, 
+    selectedClass, 
+    setSelectedClass,
+    authLoading: loading 
+  } = useAppContext();
 
-  const [classes, setClasses] = useState<any[]>([]);
-  const [selectedClass, setSelectedClass] = useState<any>(null);
-
+  const [localParents, setLocalParents] = useState<any[]>([]);
+  
   useEffect(() => {
-    Promise.all([StudentApi.getAll(), UserApi.getAll(), ClassApi.getAll()])
-      .then(([studentData, userData, classData]) => {
-        setStudents(studentData);
-        setParents(userData.filter(u => u.role === 'parent'));
-        setClasses(classData);
-        if (classData.length > 0) {
-          setSelectedClass(classData[0]);
-        }
-      })
-      .catch(err => console.error('Failed to load roster:', err))
-      .finally(() => setLoading(false));
+    UserApi.getAll().then(users => {
+      setLocalParents(users.filter(u => u.role === 'parent'));
+    });
   }, []);
 
   const handleLinkParent = async (studentId: string, parentId: string) => {
     if (!parentId) return;
     try {
       await StudentApi.linkParent(studentId, parentId);
-      // Update local state to reflect the change visually
-      setStudents(prev => prev.map(s => s.id === studentId ? { ...s, parentId } : s));
-      alert('Parent successfully linked to student!');
+      alert('Parent successfully linked to student! Please refresh to see the updated roster mapping.');
     } catch (err: any) {
       alert('Failed to link parent: ' + err.message);
     }
@@ -61,7 +55,7 @@ export function TeacherDashboard({
 
   const today = new Date().toISOString().split('T')[0];
   
-  const classStudents = students.filter(s => s.classId === selectedClass?.id);
+  const classStudents = allStudents.filter(s => s.classId === selectedClass?.id);
   const totalStudents = classStudents.length;
   const presentCount = attendance.filter(
     (a) => a.date === today && a.status === 'present' && classStudents.some(s => s.id === a.studentId)
@@ -74,16 +68,16 @@ export function TeacherDashboard({
           <h2 className="text-2xl font-bold text-gray-900">{getGreeting()}, {user.name}! ☀️</h2>
           <div className="flex items-center gap-2 text-gray-500 mt-1">
             <span>Here&apos;s what&apos;s happening in</span>
-            {classes.length > 0 ? (
+            {allClasses.length > 0 ? (
               <select 
                 className="bg-white border text-gray-700 px-2 py-1 rounded-md text-sm font-medium focus:outline-none focus:border-indigo-500"
                 value={selectedClass?.id || ''}
                 onChange={(e) => {
-                  const targetClass = classes.find(c => c.id === e.target.value);
-                  setSelectedClass(targetClass);
+                  const targetClass = allClasses.find(c => c.id === e.target.value);
+                  if (targetClass) setSelectedClass(targetClass);
                 }}
               >
-                {classes.map(c => (
+                {allClasses.map(c => (
                   <option key={c.id} value={c.id}>{c.name}</option>
                 ))}
               </select>
@@ -151,7 +145,7 @@ export function TeacherDashboard({
                     onChange={(e) => handleLinkParent(student.id, e.target.value)}
                   >
                     <option value="" disabled>Assign Parent...</option>
-                    {parents.map(p => (
+                    {localParents.map(p => (
                       <option key={p.id} value={p.id}>{p.name} (Parent)</option>
                     ))}
                   </select>

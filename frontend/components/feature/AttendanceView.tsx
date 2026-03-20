@@ -1,10 +1,9 @@
 'use client';
 
-import React, { useEffect, useState } from 'react';
 import { CheckCircle, Clock, XCircle } from 'lucide-react';
 import { Card, Badge } from '../ui';
 import { User, AttendanceRecord, AttendanceStatus, Student } from '../../modules/shared/types';
-import { StudentApi } from '../../lib/api-client';
+import { useAppContext } from '../../modules/shared/context/AppContext';
 
 interface AttendanceViewProps {
   user: User;
@@ -13,21 +12,13 @@ interface AttendanceViewProps {
 }
 
 export function AttendanceView({ user, attendance, onUpdateAttendance }: AttendanceViewProps) {
+  const { students, selectedChild, selectedClass, authLoading: loading } = useAppContext();
   const today = new Date().toISOString().split('T')[0];
-  const [students, setStudents] = useState<any[]>([]);
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    StudentApi.getAll()
-      .then(setStudents)
-      .catch((err) => console.error('Failed to load students:', err))
-      .finally(() => setLoading(false));
-  }, []);
 
   if (loading) return <div className="p-8 text-center text-gray-500">Loading attendance data...</div>;
 
   if (user.role === 'parent') {
-    const myStudent = students.find((s) => s.parentId === user.id);
+    const myStudent = selectedChild;
     
     if (!myStudent) {
       return (
@@ -75,8 +66,11 @@ export function AttendanceView({ user, attendance, onUpdateAttendance }: Attenda
     <div className="space-y-6">
       <div className="flex justify-between items-center">
         <h2 className="text-2xl font-bold text-gray-900">Daily Attendance</h2>
-        <div className="text-gray-500 bg-white px-3 py-1 rounded-lg shadow-sm border border-gray-200">
-          {today}
+        <div className="flex items-center gap-2">
+          {selectedClass && <Badge color="indigo">{selectedClass.name}</Badge>}
+          <div className="text-gray-500 bg-white px-3 py-1 rounded-lg shadow-sm border border-gray-200">
+            {today}
+          </div>
         </div>
       </div>
 
@@ -89,7 +83,7 @@ export function AttendanceView({ user, attendance, onUpdateAttendance }: Attenda
             </tr>
           </thead>
           <tbody className="divide-y divide-gray-100">
-            {students.map((student) => {
+            {students.filter(s => s.classId === selectedClass?.id).map((student) => {
               const record = attendance.find(
                 (a) => a.studentId === student.id && a.date === today
               );

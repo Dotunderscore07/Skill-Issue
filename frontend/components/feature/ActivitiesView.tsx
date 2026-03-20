@@ -4,7 +4,7 @@ import React, { useEffect, useState } from 'react';
 import { BookOpen, Trash, Edit } from 'lucide-react';
 import { Card, Badge, Button } from '../ui';
 import { User, Activity, MoodType } from '../../modules/shared/types';
-import { StudentApi } from '../../lib/api-client';
+import { useAppContext } from '../../modules/shared/context/AppContext';
 
 interface ActivitiesViewProps {
   user: User;
@@ -21,43 +21,45 @@ export function ActivitiesView({
   onEditActivity,
   onDeleteActivity,
 }: ActivitiesViewProps) {
-  const [students, setStudents] = useState<any[]>([]);
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    StudentApi.getAll()
-      .then(setStudents)
-      .catch((err) => console.error('Failed to load students', err))
-      .finally(() => setLoading(false));
-  }, []);
+  const { students, selectedChild, selectedClass, authLoading: loading } = useAppContext();
 
   if (loading) return <div className="p-8 text-center text-gray-500">Loading activities...</div>;
 
   if (user.role === 'teacher') {
+    const classStudents = students.filter(s => s.classId === selectedClass?.id);
     return (
       <TeacherActivityFeed
-        students={students}
+        students={classStudents}
         activities={activities}
+        selectedClassName={selectedClass?.name || ''}
         onAdd={onAddActivity}
         onEdit={onEditActivity}
         onDelete={onDeleteActivity}
       />
     );
   }
-  return <ParentActivityFeed user={user} students={students} activities={activities} />;
+  return <ParentActivityFeed user={user} student={selectedChild} activities={activities} />;
 }
 
 // ─── Teacher: Post & Edit Activity ────────────────────────────────────────────────
 interface TeacherActivityFeedProps {
   students: any[];
   activities: Activity[];
+  selectedClassName: string;
   onAdd: (studentId: string, text: string, mood: MoodType) => void;
   onEdit: (id: number, text: string, mood: MoodType) => void;
   onDelete: (id: number) => void;
 }
 
-function TeacherActivityFeed({ students, activities, onAdd, onEdit, onDelete }: TeacherActivityFeedProps) {
-  const [selectedStudent, setSelectedStudent] = useState(students[0]?.id || '');
+function TeacherActivityFeed({ students, activities, selectedClassName, onAdd, onEdit, onDelete }: TeacherActivityFeedProps) {
+  const [selectedStudent, setSelectedStudent] = useState('');
+
+  useEffect(() => {
+    if (students.length > 0 && !students.some(s => s.id === selectedStudent)) {
+      setSelectedStudent(students[0].id);
+    }
+  }, [students, selectedStudent]);
+
   const [activityText, setActivityText] = useState('');
   const [mood, setMood] = useState<MoodType>('happy');
 
@@ -85,7 +87,10 @@ function TeacherActivityFeed({ students, activities, onAdd, onEdit, onDelete }: 
   return (
     <div className="max-w-xl mx-auto space-y-8">
       <Card className="p-6">
-        <h2 className="text-xl font-bold mb-6">Daily Activity Update</h2>
+        <div className="flex justify-between items-center mb-6">
+          <h2 className="text-xl font-bold">Daily Activity Update</h2>
+          {selectedClassName && <Badge color="indigo">{selectedClassName}</Badge>}
+        </div>
         <form onSubmit={handlePost} className="space-y-4">
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">Student</label>
@@ -222,12 +227,11 @@ function TeacherActivityFeed({ students, activities, onAdd, onEdit, onDelete }: 
 // ─── Parent: Activity Feed ────────────────────────────────────────────────────
 interface ParentActivityFeedProps {
   user: User;
-  students: any[];
+  student: any;
   activities: Activity[];
 }
 
-function ParentActivityFeed({ user, students, activities }: ParentActivityFeedProps) {
-  const student = students.find((s) => s.parentId === user.id);
+function ParentActivityFeed({ user, student, activities }: ParentActivityFeedProps) {
   
   if (!student) {
     return (

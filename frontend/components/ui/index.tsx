@@ -52,7 +52,7 @@ export function Card({ children, className = '' }: CardProps) {
 }
 
 // ─── Badge ────────────────────────────────────────────────────────────────────
-type BadgeColor = 'blue' | 'green' | 'yellow' | 'red';
+type BadgeColor = 'blue' | 'green' | 'yellow' | 'red' | 'indigo' | 'purple';
 
 interface BadgeProps {
   children: React.ReactNode;
@@ -65,6 +65,8 @@ export function Badge({ children, color = 'blue' }: BadgeProps) {
     green: 'bg-green-100 text-green-800',
     yellow: 'bg-yellow-100 text-yellow-800',
     red: 'bg-red-100 text-red-800',
+    indigo: 'bg-indigo-100 text-indigo-800',
+    purple: 'bg-purple-100 text-purple-800',
   };
 
   return (

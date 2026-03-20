@@ -234,3 +234,15 @@ export class AttendanceController {
   }
 }
 
+export class ClassController {
+  static async getAll(req: ExpressRequest, res: ExpressResponse) {
+    try {
+      const result = await query('SELECT * FROM classes');
+      res.json({ success: true, data: result.rows });
+    } catch (err) {
+      console.error(err);
+      res.status(500).json({ success: false, data: null, error: 'Internal server error' });
+    }
+  }
+}
+

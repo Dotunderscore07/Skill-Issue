@@ -6,6 +6,13 @@ import { Card } from '../ui';
 import { User, Activity, Announcement } from '../../modules/shared/types';
 import { StudentApi } from '../../lib/api-client';
 
+const getGreeting = () => {
+  const hour = new Date().getHours();
+  if (hour < 12) return 'Good Morning';
+  if (hour < 18) return 'Good Afternoon';
+  return 'Good Evening';
+};
+
 interface ParentDashboardProps {
   user: User;
   activities: Activity[];
@@ -13,14 +20,18 @@ interface ParentDashboardProps {
 }
 
 export function ParentDashboard({ user, activities, announcements }: ParentDashboardProps) {
-  const [student, setStudent] = useState<any>(null);
+  const [children, setChildren] = useState<any[]>([]);
+  const [selectedChild, setSelectedChild] = useState<any>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     StudentApi.getAll()
       .then((allStudents) => {
-        const myChild = allStudents.find((s) => s.parentId === user.id);
-        setStudent(myChild);
+        const myChildren = allStudents.filter((s) => s.parentId === user.id);
+        setChildren(myChildren);
+        if (myChildren.length > 0) {
+          setSelectedChild(myChildren[0]);
+        }
       })
       .catch((err) => console.error('Failed to load student:', err))
       .finally(() => setLoading(false));
@@ -28,7 +39,7 @@ export function ParentDashboard({ user, activities, announcements }: ParentDashb
 
   if (loading) return <div className="p-8 text-center text-gray-500">Loading your dashboard...</div>;
 
-  if (!student) {
+  if (children.length === 0 || !selectedChild) {
     return (
       <div className="p-8 text-center text-gray-500 bg-white rounded-xl shadow-sm border border-gray-100">
         <h2 className="text-xl font-bold mb-2 text-gray-800">Hang tight!</h2>
@@ -38,17 +49,33 @@ export function ParentDashboard({ user, activities, announcements }: ParentDashb
   }
 
   // The backend already filters `activities` for only this parent's students
-  const recentActivities = activities;
+  const recentActivities = activities.filter(a => a.studentId === selectedChild.id);
 
   return (
     <div className="space-y-6">
+      {/* Dynamic Multi-Child Toggle Tab */}
+      {children.length > 1 && (
+        <div className="flex bg-white rounded-lg p-1 w-full max-w-sm border shadow-sm">
+          {children.map(child => (
+            <button
+              key={child.id}
+              onClick={() => setSelectedChild(child)}
+              className={`flex-1 py-1 px-3 text-sm font-medium rounded-md transition-colors ${selectedChild.id === child.id ? 'bg-indigo-100 text-indigo-700' : 'text-gray-500 hover:text-gray-900'}`}
+            >
+              {child.name}
+            </button>
+          ))}
+        </div>
+      )}
+
       <div className="flex items-center gap-4 bg-white p-6 rounded-2xl shadow-sm border border-gray-100">
         <div className="w-16 h-16 bg-blue-100 rounded-full flex items-center justify-center text-4xl shadow-inner">
           👶
         </div>
         <div>
-          <h2 className="text-2xl font-bold text-gray-900">{student.name}&apos;s Profile</h2>
-          <p className="text-gray-500">Class K1 • Sunshine Kindergarten</p>
+          <p className="text-sm font-medium text-indigo-600 mb-1">{getGreeting()}, {user.name}!</p>
+          <h2 className="text-2xl font-bold text-gray-900">{selectedChild.name}&apos;s Profile</h2>
+          <p className="text-gray-500">KinderConnect Updates</p>
         </div>
       </div>
 

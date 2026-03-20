@@ -4,7 +4,14 @@ import React, { useEffect, useState } from 'react';
 import { Users, MessageCircle, Calendar, Plus } from 'lucide-react';
 import { Card, Badge, Button } from '../ui';
 import { User, Announcement, AttendanceRecord } from '../../modules/shared/types';
-import { StudentApi, UserApi } from '../../lib/api-client';
+import { StudentApi, UserApi, ClassApi } from '../../lib/api-client';
+
+const getGreeting = () => {
+  const hour = new Date().getHours();
+  if (hour < 12) return 'Good Morning';
+  if (hour < 18) return 'Good Afternoon';
+  return 'Good Evening';
+};
 
 interface TeacherDashboardProps {
   user: User;
@@ -23,11 +30,18 @@ export function TeacherDashboard({
   const [parents, setParents] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 
+  const [classes, setClasses] = useState<any[]>([]);
+  const [selectedClass, setSelectedClass] = useState<any>(null);
+
   useEffect(() => {
-    Promise.all([StudentApi.getAll(), UserApi.getAll()])
-      .then(([studentData, userData]) => {
+    Promise.all([StudentApi.getAll(), UserApi.getAll(), ClassApi.getAll()])
+      .then(([studentData, userData, classData]) => {
         setStudents(studentData);
         setParents(userData.filter(u => u.role === 'parent'));
+        setClasses(classData);
+        if (classData.length > 0) {
+          setSelectedClass(classData[0]);
+        }
       })
       .catch(err => console.error('Failed to load roster:', err))
       .finally(() => setLoading(false));
@@ -46,15 +60,38 @@ export function TeacherDashboard({
   };
 
   const today = new Date().toISOString().split('T')[0];
-  const presentCount = attendance.filter((a) => a.date === today && a.status === 'present').length;
-  const totalStudents = students.length;
+  
+  const classStudents = students.filter(s => s.classId === selectedClass?.id);
+  const totalStudents = classStudents.length;
+  const presentCount = attendance.filter(
+    (a) => a.date === today && a.status === 'present' && classStudents.some(s => s.id === a.studentId)
+  ).length;
 
   return (
     <div className="space-y-6">
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
-          <h2 className="text-2xl font-bold text-gray-900">Good Morning, {user.name}! ☀️</h2>
-          <p className="text-gray-500">Here&apos;s what&apos;s happening in Class K1 today.</p>
+          <h2 className="text-2xl font-bold text-gray-900">{getGreeting()}, {user.name}! ☀️</h2>
+          <div className="flex items-center gap-2 text-gray-500 mt-1">
+            <span>Here&apos;s what&apos;s happening in</span>
+            {classes.length > 0 ? (
+              <select 
+                className="bg-white border text-gray-700 px-2 py-1 rounded-md text-sm font-medium focus:outline-none focus:border-indigo-500"
+                value={selectedClass?.id || ''}
+                onChange={(e) => {
+                  const targetClass = classes.find(c => c.id === e.target.value);
+                  setSelectedClass(targetClass);
+                }}
+              >
+                {classes.map(c => (
+                  <option key={c.id} value={c.id}>{c.name}</option>
+                ))}
+              </select>
+            ) : (
+              <span>your classroom</span>
+            )}
+            <span>today.</span>
+          </div>
         </div>
         <Button onClick={() => onNavigate('announcements')}>
           <Plus size={18} /> New Announcement
@@ -99,10 +136,10 @@ export function TeacherDashboard({
         <Card className="flex flex-col">
           <div className="p-4 border-b border-gray-100 flex justify-between items-center">
             <h3 className="font-bold text-lg">Class Roster & Parent Mapping</h3>
-            <span className="text-xs text-gray-400">Total: {students.length}</span>
+            <span className="text-xs text-gray-400">Total: {totalStudents}</span>
           </div>
           <div className="divide-y divide-gray-100">
-            {loading ? <p className="p-4 text-gray-500">Loading roster...</p> : students.map((student) => (
+            {loading ? <p className="p-4 text-gray-500">Loading roster...</p> : classStudents.map((student) => (
               <div key={student.id} className="p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 hover:bg-gray-50">
                 <div className="flex-1">
                   <p className="font-medium text-gray-900">{student.name}</p>

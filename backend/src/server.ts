@@ -1,7 +1,7 @@
 import express, { Router, Request, Response } from 'express';
 import cors from 'cors';
 import cookieParser from 'cookie-parser';
-import { UserController, StudentController, AnnouncementController, ActivityController, AttendanceController, MessageController } from './controllers';
+import { UserController, StudentController, AnnouncementController, ActivityController, AttendanceController, MessageController, ClassController } from './controllers';
 import { AuthController } from './controllers/AuthController';
 import { auth, authorizeRole } from './middlewares/auth';
 import { initDb } from './db';
@@ -27,6 +27,9 @@ router.post('/auth/logout', AuthController.logout);
 // Users
 router.get('/users', auth, UserController.getAll);
 router.get('/users/:id', auth, UserController.getById);
+
+// Classes
+router.get('/classes', auth, ClassController.getAll);
 
 // Students
 router.get('/students', auth, StudentController.getAll);

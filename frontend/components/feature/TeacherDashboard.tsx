@@ -99,12 +99,6 @@ export function TeacherDashboard({ user, attendance, announcements, onNavigate }
           </div>
         </div>
         <div className="flex items-center gap-3">
-          <input
-            type="date"
-            className="p-2 border rounded-lg bg-white shadow-sm focus:ring-2 focus:ring-indigo-500 outline-none text-sm"
-            value={selectedDate}
-            onChange={(e) => setSelectedDate(e.target.value)}
-          />
           <Button onClick={() => onNavigate('announcements')}>
             <Plus size={18} /> New Announcement
           </Button>
@@ -123,10 +117,10 @@ export function TeacherDashboard({ user, attendance, announcements, onNavigate }
         </Card>
         <Card className="p-5 flex items-center gap-4 border-l-4 border-l-blue-500">
           <div className="bg-blue-100 p-3 rounded-full">
-            <MessageCircle className="text-blue-600" />
+            <Users className="text-blue-600" />
           </div>
           <div>
-            <p className="text-sm text-gray-500 font-medium">Classroom Students</p>
+            <p className="text-sm text-gray-500 font-medium">Parents</p>
             <p className="text-2xl font-bold">{totalStudents}</p>
           </div>
         </Card>

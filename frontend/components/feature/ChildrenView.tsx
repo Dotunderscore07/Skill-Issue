@@ -70,7 +70,7 @@ export function ChildrenView() {
             <p className="text-sm text-gray-500 mt-1">Assign each child to an existing parent account and class.</p>
           </div>
           {editingStudent && (
-            <Button variant="secondary" onClick={resetForm}>New Child</Button>
+            <Button variant="secondary" onClick={resetForm}>Go Back</Button>
           )}
         </div>
         <form onSubmit={handleSubmit} className="space-y-4">

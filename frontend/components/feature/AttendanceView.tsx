@@ -122,14 +122,14 @@ export function AttendanceView({ user, attendance, onUpdateAttendance }: Attenda
           <p className="text-gray-500 text-sm">
             {isHistorical ? (
               <span className="flex items-center gap-1 text-amber-600 font-medium">
-                ⚠️ Viewing Historical Data (Read-Only)
+                 Viewing Historical Data - Read-Only
               </span>
             ) : isFuture ? (
               <span className="flex items-center gap-1 text-blue-600 font-medium">
-                📅 Future Registry (Read-Only)
+                Future Registry -Read-Only
               </span>
             ) : (
-              <span className="text-green-600 font-medium">✨ Marking attendance for Today</span>
+              <span className="text-green-600 font-medium">Marking attendance for Today</span>
             )}
           </p>
         </div>

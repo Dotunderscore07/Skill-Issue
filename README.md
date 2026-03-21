@@ -105,8 +105,4 @@ The app uses **React Context** (`AppContext`) for all global state. This is inte
 | `AttendanceApi` | `frontend/lib/api-client` | Frontend fetch wrapper |
 | `MessageApi` | `frontend/lib/api-client` | Frontend fetch wrapper |
 
-### Production Next Steps
-- Replace in-memory stores with a real database (Prisma + PostgreSQL recommended)
-- Add authentication (NextAuth.js or Clerk)
-- Add input validation (Zod)
-- Add error boundaries in React
+

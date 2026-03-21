@@ -9,7 +9,7 @@ export interface IUser {
   phone: string;
   role: UserRole;
   avatar: string;
-  classId?: string; // For teachers
+  classId?: string;
 }
 
 export interface IStudent {
@@ -17,6 +17,7 @@ export interface IStudent {
   name: string;
   classId: string;
   avatar: string;
+  parentId?: string;
 }
 
 export interface IClass {

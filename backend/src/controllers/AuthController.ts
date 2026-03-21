@@ -8,7 +8,7 @@ export class AuthController {
   public static async register(req: Request, res: Response): Promise<void> {
     try {
       const { name, phone, password } = req.body;
-      
+
       if (!name || !phone || !password) {
         res.status(400).json({ success: false, data: null, error: 'Missing required fields' });
         return;
@@ -52,7 +52,7 @@ export class AuthController {
       const { phone, password } = req.body;
 
       if (!phone || !password) {
-        res.status(400).json({ success: false, data: null, error: 'Missing phone or password' });
+        res.status(400).json({ success: false, data: null, error: 'Missing phone number or password' });
         return;
       }
 
@@ -60,13 +60,13 @@ export class AuthController {
       const user = result.rows[0];
 
       if (!user) {
-        res.status(401).json({ success: false, data: null, error: 'Invalid phone or password' });
+        res.status(401).json({ success: false, data: null, error: 'Invalid phone number or password' });
         return;
       }
 
       const isMatch = await bcrypt.compare(password, user.password);
       if (!isMatch) {
-        res.status(401).json({ success: false, data: null, error: 'Invalid ID or password' });
+        res.status(401).json({ success: false, data: null, error: 'Invalid phone number or password' });
         return;
       }
 

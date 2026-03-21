@@ -15,9 +15,9 @@ export const MOCK_USERS: IUser[] = [
 ];
 
 export const MOCK_STUDENTS: IStudent[] = [
-  { id: 's1', name: 'Alex Smith', classId: 'c1', avatar: '👦' },
-  { id: 's2', name: 'Bella Garcia', classId: 'c1', avatar: '👧' },
-  { id: 's3', name: 'Charlie Brown', classId: 'c1', avatar: '🧒' },
+  { id: 's1', name: 'Alex Smith', classId: 'c1', avatar: '👦', parentId: 'p1' },
+  { id: 's2', name: 'Bella Garcia', classId: 'c1', avatar: '👧', parentId: 'p2' },
+  { id: 's3', name: 'Charlie Brown', classId: 'c1', avatar: '🧒', parentId: 'p1' },
 ];
 
 export const MOCK_CLASSES: IClass[] = [

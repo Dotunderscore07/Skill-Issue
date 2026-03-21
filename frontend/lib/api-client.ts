@@ -2,7 +2,11 @@ import {
   Announcement,
   Activity,
   AttendanceRecord,
+  Class,
   Message,
+  MessageKind,
+  Student,
+  User,
   AnnouncementType,
   AttendanceStatus,
   MoodType,
@@ -15,7 +19,6 @@ async function request<T>(url: string, options?: RequestInit): Promise<T> {
     'Content-Type': 'application/json',
   };
 
-  // Add Auth Token from LocalStorage if available in browser
   if (typeof window !== 'undefined') {
     const token = localStorage.getItem('kinderconnect_token');
     if (token) {
@@ -30,21 +33,34 @@ async function request<T>(url: string, options?: RequestInit): Promise<T> {
   });
 
   const json = (await res.json()) as { success: boolean; data: T; error?: string };
-  if (!json.success) throw new Error(json.error ?? 'API error');
+  if (!json.success) {
+    throw new Error(json.error ?? 'API error');
+  }
+
   return json.data;
 }
 
 export class AuthApi {
   static me() {
-    return request<any>(`${BASE}/auth/me`);
+    return request<User>(`${BASE}/auth/me`);
   }
 
   static logout() {
-    return request<any>(`${BASE}/auth/logout`, { method: 'POST' });
+    return request<null>(`${BASE}/auth/logout`, { method: 'POST' });
   }
 }
 
-// ─── Announcements ────────────────────────────────────────────────────────────
+export class DashboardApi {
+  static getCoordinatorSummary() {
+    return request<{
+      totalTeachers: number;
+      totalChildren: number;
+      totalParents: number;
+      announcements: Announcement[];
+    }>(`${BASE}/dashboard/coordinator`);
+  }
+}
+
 export class AnnouncementApi {
   static getAll() {
     return request<Announcement[]>(`${BASE}/announcements`);
@@ -58,7 +74,6 @@ export class AnnouncementApi {
   }
 }
 
-// ─── Activities ───────────────────────────────────────────────────────────────
 export class ActivityApi {
   static getAll(studentId?: string) {
     const qs = studentId ? `?studentId=${studentId}` : '';
@@ -86,13 +101,13 @@ export class ActivityApi {
   }
 }
 
-// ─── Attendance ───────────────────────────────────────────────────────────────
 export class AttendanceApi {
   static getAll(studentId?: string, date?: string) {
     const params = new URLSearchParams();
     if (studentId) params.set('studentId', studentId);
     if (date) params.set('date', date);
-    return request<AttendanceRecord[]>(`${BASE}/attendance?${params.toString()}`);
+    const queryString = params.toString();
+    return request<AttendanceRecord[]>(`${BASE}/attendance${queryString ? `?${queryString}` : ''}`);
   }
 
   static update(studentId: string, status: AttendanceStatus, date: string) {
@@ -103,44 +118,99 @@ export class AttendanceApi {
   }
 }
 
-// ─── Messages ─────────────────────────────────────────────────────────────────
 export class MessageApi {
-  static getThread(userId: string, partnerId: string) {
-    return request<Message[]>(`${BASE}/messages?userId=${userId}&partnerId=${partnerId}`);
+  static getAll(partnerId?: string) {
+    const params = new URLSearchParams();
+    if (partnerId) params.set('partnerId', partnerId);
+    const queryString = params.toString();
+    return request<Message[]>(`${BASE}/messages${queryString ? `?${queryString}` : ''}`);
   }
 
-  static send(fromId: string, toId: string, text: string) {
+  static getBroadcasts() {
+    return request<Message[]>(`${BASE}/messages?kind=broadcast`);
+  }
+
+  static send(toId: string, text: string) {
     return request<Message>(`${BASE}/messages`, {
       method: 'POST',
-      body: JSON.stringify({ fromId, toId, text }),
+      body: JSON.stringify({ toId, text, kind: 'direct' satisfies MessageKind }),
+    });
+  }
+
+  static sendBroadcast(text: string) {
+    return request<Message>(`${BASE}/messages`, {
+      method: 'POST',
+      body: JSON.stringify({ text, kind: 'broadcast' satisfies MessageKind }),
     });
   }
 }
 
-// ─── Students ─────────────────────────────────────────────────────────────────
 export class StudentApi {
   static getAll() {
-    return request<any[]>(`${BASE}/students`);
+    return request<Student[]>(`${BASE}/students`);
+  }
+
+  static create(payload: { name: string; dob: string; photo: string; parentId?: string; classId: string }) {
+    return request<Student>(`${BASE}/students`, {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    });
+  }
+
+  static update(studentId: string, payload: { name: string; dob: string; photo: string; parentId?: string; classId: string }) {
+    return request<Student>(`${BASE}/students/${studentId}`, {
+      method: 'PUT',
+      body: JSON.stringify(payload),
+    });
   }
 
   static linkParent(studentId: string, parentId: string) {
-    return request<any>(`${BASE}/students/${studentId}/link`, {
+    return request<{ studentId: string; parentId: string }>(`${BASE}/students/${studentId}/link`, {
       method: 'PUT',
       body: JSON.stringify({ parentId }),
     });
   }
 }
 
-// ─── Users ────────────────────────────────────────────────────────────────────
 export class UserApi {
-  static getAll() {
-    return request<any[]>(`${BASE}/users`);
+  static getAll(role?: string) {
+    const queryString = role ? `?role=${role}` : '';
+    return request<User[]>(`${BASE}/users${queryString}`);
   }
 }
 
-// ─── Classes ──────────────────────────────────────────────────────────────────
+export class TeacherApi {
+  static create(payload: { name: string; phone: string; password: string; classIds: string[] }) {
+    return request<User>(`${BASE}/users/teachers`, {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    });
+  }
+
+  static update(id: string, payload: { name: string; phone: string; password?: string; classIds: string[] }) {
+    return request<User>(`${BASE}/users/teachers/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(payload),
+    });
+  }
+}
+
 export class ClassApi {
   static getAll() {
-    return request<any[]>(`${BASE}/classes`);
+    return request<Class[]>(`${BASE}/classes`);
+  }
+
+  static create(payload: { name: string; teacherIds: string[] }) {
+    return request<Class>(`${BASE}/classes`, {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    });
+  }
+
+  static update(id: string, payload: { name: string; teacherIds: string[] }) {
+    return request<Class>(`${BASE}/classes/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(payload),
+    });
   }
 }

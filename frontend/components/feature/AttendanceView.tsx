@@ -8,7 +8,7 @@ import { useAppContext } from '../../modules/shared/context/AppContext';
 interface AttendanceViewProps {
   user: User;
   attendance: AttendanceRecord[];
-  onUpdateAttendance: (studentId: string, status: AttendanceStatus, date: string) => void;
+  onUpdateAttendance: (studentId: string, status: AttendanceStatus, date: string) => Promise<void>;
 }
 
 export function AttendanceView({ user, attendance, onUpdateAttendance }: AttendanceViewProps) {

@@ -1,0 +1,135 @@
+'use client';
+
+import React, { useState } from 'react';
+import { PencilLine, Plus } from 'lucide-react';
+import { Button, Card } from '../ui';
+import { Student } from '../../modules/shared/types';
+import { useAppContext } from '../../modules/shared/context/AppContext';
+
+const emptyForm = {
+  name: '',
+  dob: '',
+  photo: '',
+  parentId: '',
+  classId: '',
+};
+
+export function ChildrenView() {
+  const { students, classes, allUsers, createStudent, updateStudent } = useAppContext();
+  const parents = allUsers.filter((user) => user.role === 'parent');
+  const [editingStudent, setEditingStudent] = useState<Student | null>(null);
+  const [form, setForm] = useState(emptyForm);
+
+  const resetForm = () => {
+    setEditingStudent(null);
+    setForm(emptyForm);
+  };
+
+  const handlePhotoChange = async (file: File | null) => {
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = () => {
+      setForm((current) => ({ ...current, photo: typeof reader.result === 'string' ? reader.result : '' }));
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const startEdit = (student: Student) => {
+    setEditingStudent(student);
+    setForm({
+      name: student.name,
+      dob: student.dob,
+      photo: student.photo,
+      parentId: student.parentId ?? '',
+      classId: student.classId,
+    });
+  };
+
+  const handleSubmit = async (event: React.FormEvent) => {
+    event.preventDefault();
+    const payload = {
+      ...form,
+      parentId: form.parentId || undefined,
+    };
+
+    if (editingStudent) {
+      await updateStudent(editingStudent.id, payload);
+    } else {
+      await createStudent(payload);
+    }
+
+    resetForm();
+  };
+
+  return (
+    <div className="space-y-6">
+      <Card className="p-6">
+        <div className="flex items-center justify-between gap-4 mb-4">
+          <div>
+            <h3 className="text-lg font-bold text-gray-900">{editingStudent ? 'Edit Child Profile' : 'Create Child Profile'}</h3>
+            <p className="text-sm text-gray-500 mt-1">Assign each child to an existing parent account and class.</p>
+          </div>
+          {editingStudent && (
+            <Button variant="secondary" onClick={resetForm}>New Child</Button>
+          )}
+        </div>
+        <form onSubmit={handleSubmit} className="space-y-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <input value={form.name} onChange={(e) => setForm((current) => ({ ...current, name: e.target.value }))} placeholder="Child name" className="px-4 py-2 border border-gray-200 rounded-xl" />
+            <input value={form.dob} onChange={(e) => setForm((current) => ({ ...current, dob: e.target.value }))} type="date" className="px-4 py-2 border border-gray-200 rounded-xl" />
+            <select value={form.parentId} onChange={(e) => setForm((current) => ({ ...current, parentId: e.target.value }))} className="px-4 py-2 border border-gray-200 rounded-xl bg-white">
+              <option value="">Assign parent</option>
+              {parents.map((parent) => (
+                <option key={parent.id} value={parent.id}>{parent.name}</option>
+              ))}
+            </select>
+            <select value={form.classId} onChange={(e) => setForm((current) => ({ ...current, classId: e.target.value }))} className="px-4 py-2 border border-gray-200 rounded-xl bg-white">
+              <option value="">Assign class</option>
+              {classes.map((entry) => (
+                <option key={entry.id} value={entry.id}>{entry.name}</option>
+              ))}
+            </select>
+          </div>
+          <div className="space-y-3">
+            <input type="file" accept="image/*" onChange={(e) => handlePhotoChange(e.target.files?.[0] ?? null)} className="block text-sm text-gray-500" />
+            {form.photo && (
+              <img src={form.photo} alt="Child preview" className="w-20 h-20 rounded-2xl object-cover border border-gray-200" />
+            )}
+          </div>
+          <Button type="submit">
+            <Plus size={18} />
+            {editingStudent ? 'Save Child' : 'Create Child'}
+          </Button>
+        </form>
+      </Card>
+
+      <Card>
+        <div className="p-4 border-b border-gray-100">
+          <h3 className="font-bold text-lg">Children</h3>
+        </div>
+        <div className="divide-y divide-gray-100">
+          {students.map((student) => (
+            <div key={student.id} className="p-4 flex flex-col md:flex-row md:items-center justify-between gap-4">
+              <div className="flex items-center gap-4">
+                <div className="w-14 h-14 rounded-2xl overflow-hidden bg-indigo-100 flex items-center justify-center text-indigo-700 font-semibold">
+                  {student.photo ? <img src={student.photo} alt={student.name} className="w-full h-full object-cover" /> : student.name.slice(0, 2).toUpperCase()}
+                </div>
+                <div>
+                  <p className="font-semibold text-gray-900">{student.name}</p>
+                  <p className="text-sm text-gray-500">DOB: {student.dob}</p>
+                  <p className="text-xs text-gray-400 mt-1">
+                    {parents.find((parent) => parent.id === student.parentId)?.name ?? 'No parent assigned'} | {classes.find((entry) => entry.id === student.classId)?.name ?? 'No class'}
+                  </p>
+                </div>
+              </div>
+              <Button variant="secondary" onClick={() => startEdit(student)}>
+                <PencilLine size={16} />
+                Edit
+              </Button>
+            </div>
+          ))}
+        </div>
+      </Card>
+    </div>
+  );
+}

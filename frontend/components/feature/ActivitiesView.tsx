@@ -9,9 +9,9 @@ import { useAppContext } from '../../modules/shared/context/AppContext';
 interface ActivitiesViewProps {
   user: User;
   activities: Activity[];
-  onAddActivity: (studentId: string, text: string, mood: MoodType) => void;
-  onEditActivity: (id: number, text: string, mood: MoodType) => void;
-  onDeleteActivity: (id: number) => void;
+  onAddActivity: (studentId: string, text: string, mood: MoodType) => Promise<void>;
+  onEditActivity: (id: number, text: string, mood: MoodType) => Promise<void>;
+  onDeleteActivity: (id: number) => Promise<void>;
 }
 
 export function ActivitiesView({
@@ -52,9 +52,9 @@ interface TeacherActivityFeedProps {
   selectedClassName: string;
   selectedDate: string;
   onSetDate: (d: string) => void;
-  onAdd: (studentId: string, text: string, mood: MoodType) => void;
-  onEdit: (id: number, text: string, mood: MoodType) => void;
-  onDelete: (id: number) => void;
+  onAdd: (studentId: string, text: string, mood: MoodType) => Promise<void>;
+  onEdit: (id: number, text: string, mood: MoodType) => Promise<void>;
+  onDelete: (id: number) => Promise<void>;
 }
 
 function TeacherActivityFeed({ students, activities, selectedClassName, selectedDate, onSetDate, onAdd, onEdit, onDelete }: TeacherActivityFeedProps) {

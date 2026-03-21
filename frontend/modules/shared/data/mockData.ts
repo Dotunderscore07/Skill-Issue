@@ -8,15 +8,16 @@ import {
 } from '../types';
 
 export const MOCK_USERS: User[] = [
-  { id: 't1', name: 'Ms. Johnson', role: 'teacher', avatar: '👩‍🏫', classId: 'c1' },
-  { id: 'p1', name: 'Mr. Smith', role: 'parent', avatar: '👨‍💼', studentId: 's1' },
-  { id: 'p2', name: 'Mrs. Garcia', role: 'parent', avatar: '👩‍⚕️', studentId: 's2' },
+  { id: 'co1', name: 'Coordinator Mia', role: 'coordinator', avatar: 'CM' },
+  { id: 't1', name: 'Ms. Johnson', role: 'teacher', avatar: 'MJ', classIds: ['c1'] },
+  { id: 'p1', name: 'Mr. Smith', role: 'parent', avatar: 'MS' },
+  { id: 'p2', name: 'Mrs. Garcia', role: 'parent', avatar: 'MG' },
 ];
 
 export const MOCK_STUDENTS: Student[] = [
-  { id: 's1', name: 'Alex Smith', classId: 'c1', parentId: 'p1', avatar: '👦' },
-  { id: 's2', name: 'Bella Garcia', classId: 'c1', parentId: 'p2', avatar: '👧' },
-  { id: 's3', name: 'Charlie Brown', classId: 'c1', parentId: 'p3', avatar: '🧒' },
+  { id: 's1', name: 'Alex Smith', dob: '2019-03-14', classId: 'c1', parentId: 'p1', photo: '' },
+  { id: 's2', name: 'Bella Garcia', dob: '2019-07-02', classId: 'c1', parentId: 'p2', photo: '' },
+  { id: 's3', name: 'Charlie Brown', dob: '2020-01-19', classId: 'c1', parentId: 'p1', photo: '' },
 ];
 
 export const INITIAL_ANNOUNCEMENTS: Announcement[] = [
@@ -31,7 +32,7 @@ export const INITIAL_ANNOUNCEMENTS: Announcement[] = [
     id: 2,
     text: 'Parent-Teacher meetings scheduled for next week.',
     date: '2023-10-20',
-    author: 'Admin',
+    author: 'Coordinator Mia',
     type: 'info',
   },
 ];
@@ -49,6 +50,7 @@ export const INITIAL_ATTENDANCE: AttendanceRecord[] = [
 ];
 
 export const INITIAL_MESSAGES: Message[] = [
-  { id: 1, fromId: 'p1', toId: 't1', text: 'Hi Ms. Johnson, will Alex need boots for the trip?', timestamp: '10:30 AM', read: true },
-  { id: 2, fromId: 't1', toId: 'p1', text: 'Hi Mr. Smith! Yes, it might be muddy.', timestamp: '10:35 AM', read: true },
+  { id: 1, fromId: 'p1', toId: 't1', text: 'Hi Ms. Johnson, will Alex need boots for the trip?', timestamp: '10:30 AM', read: true, kind: 'direct' },
+  { id: 2, fromId: 't1', toId: 'p1', text: 'Hi Mr. Smith! Yes, it might be muddy.', timestamp: '10:35 AM', read: true, kind: 'direct' },
+  { id: 3, fromId: 'co1', toId: null, text: 'Welcome to KinderConnect. This is a coordinator broadcast message.', timestamp: '09:00 AM', read: true, kind: 'broadcast' },
 ];

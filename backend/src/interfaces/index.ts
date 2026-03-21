@@ -1,7 +1,8 @@
-export type UserRole = 'teacher' | 'parent';
+export type UserRole = 'coordinator' | 'teacher' | 'parent';
 export type AttendanceStatus = 'present' | 'late' | 'absent' | 'unmarked';
 export type AnnouncementType = 'info' | 'urgent' | 'event';
 export type MoodType = 'happy' | 'neutral' | 'sad' | 'energetic';
+export type MessageKind = 'direct' | 'broadcast';
 
 export interface IUser {
   id: string;
@@ -9,20 +10,22 @@ export interface IUser {
   phone: string;
   role: UserRole;
   avatar: string;
-  classId?: string;
+  classIds?: string[];
 }
 
 export interface IStudent {
   id: string;
   name: string;
+  dob: string;
   classId: string;
-  avatar: string;
+  photo: string;
   parentId?: string;
 }
 
 export interface IClass {
   id: string;
   name: string;
+  teacherIds?: string[];
 }
 
 export interface IAnnouncement {
@@ -50,10 +53,11 @@ export interface IAttendanceRecord {
 export interface IMessage {
   id: number;
   fromId: string;
-  toId: string;
+  toId: string | null;
   text: string;
   timestamp: string;
   read: boolean;
+  kind: MessageKind;
 }
 
 export interface IApiResponse<T> {

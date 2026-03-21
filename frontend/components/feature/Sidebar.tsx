@@ -9,6 +9,8 @@ import {
   Bell,
   BookOpen,
   LogOut,
+  Shapes,
+  Users,
 } from 'lucide-react';
 import { User, ViewType } from '../../modules/shared/types';
 import { Button } from '../ui';
@@ -26,9 +28,7 @@ function NavItem({ id, icon: Icon, label, currentView, onClick }: NavItemProps) 
     <button
       onClick={() => onClick(id)}
       className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-colors ${
-        currentView === id
-          ? 'bg-indigo-600 text-white shadow-md'
-          : 'text-gray-600 hover:bg-indigo-50'
+        currentView === id ? 'bg-indigo-600 text-white shadow-md' : 'text-gray-600 hover:bg-indigo-50'
       }`}
     >
       <Icon size={20} />
@@ -45,6 +45,28 @@ interface SidebarProps {
 }
 
 export function Sidebar({ user, view, onViewChange, onLogout }: SidebarProps) {
+  const navItems =
+    user.role === 'coordinator'
+      ? [
+          { id: 'dashboard' as ViewType, icon: Home, label: 'Dashboard' },
+          { id: 'teachers' as ViewType, icon: Users, label: 'Teachers' },
+          { id: 'children' as ViewType, icon: Baby, label: 'Children' },
+          { id: 'classes' as ViewType, icon: Shapes, label: 'Classes' },
+          { id: 'announcements' as ViewType, icon: Bell, label: 'Announcements' },
+          { id: 'messages' as ViewType, icon: MessageCircle, label: 'Messages' },
+        ]
+      : [
+          { id: 'dashboard' as ViewType, icon: Home, label: 'Dashboard' },
+          { id: 'messages' as ViewType, icon: MessageCircle, label: 'Messages' },
+          { id: 'attendance' as ViewType, icon: Calendar, label: 'Attendance' },
+          { id: 'announcements' as ViewType, icon: Bell, label: 'Announcements' },
+          {
+            id: 'activities' as ViewType,
+            icon: BookOpen,
+            label: user.role === 'parent' ? 'Daily Activities' : 'Post Activity',
+          },
+        ];
+
   return (
     <aside className="flex flex-col h-full">
       <div className="p-6 border-b border-gray-100 flex items-center gap-3">
@@ -55,21 +77,16 @@ export function Sidebar({ user, view, onViewChange, onLogout }: SidebarProps) {
       </div>
 
       <div className="p-4 space-y-2 flex-1">
-        <NavItem id="dashboard" icon={Home} label="Dashboard" currentView={view} onClick={onViewChange} />
-        <NavItem id="messages" icon={MessageCircle} label="Messages" currentView={view} onClick={onViewChange} />
-        <NavItem id="attendance" icon={Calendar} label="Attendance" currentView={view} onClick={onViewChange} />
-        <NavItem id="announcements" icon={Bell} label="Announcements" currentView={view} onClick={onViewChange} />
-        {user.role === 'parent' && (
-          <NavItem id="activities" icon={BookOpen} label="Daily Activities" currentView={view} onClick={onViewChange} />
-        )}
-        {user.role === 'teacher' && (
-          <NavItem id="activities" icon={BookOpen} label="Post Activity" currentView={view} onClick={onViewChange} />
-        )}
+        {navItems.map((item) => (
+          <NavItem key={item.id} id={item.id} icon={item.icon} label={item.label} currentView={view} onClick={onViewChange} />
+        ))}
       </div>
 
       <div className="p-4 border-t border-gray-100">
         <div className="flex items-center gap-3 mb-4 px-2">
-          <span className="text-2xl">{user.avatar}</span>
+          <span className="w-10 h-10 rounded-full bg-indigo-100 text-indigo-700 font-bold flex items-center justify-center">
+            {user.avatar}
+          </span>
           <div className="flex-1 min-w-0">
             <p className="text-sm font-bold text-gray-900 truncate">{user.name}</p>
             <p className="text-xs text-gray-500 capitalize">{user.role}</p>

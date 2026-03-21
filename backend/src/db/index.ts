@@ -1,31 +1,41 @@
 import { Pool, Client } from 'pg';
 import dotenv from 'dotenv';
 import bcrypt from 'bcrypt';
-import { MOCK_USERS, MOCK_STUDENTS, MOCK_CLASSES, INITIAL_ANNOUNCEMENTS, INITIAL_ACTIVITIES, INITIAL_ATTENDANCE, INITIAL_MESSAGES } from '../models/mockData';
+import {
+  MOCK_USERS,
+  MOCK_STUDENTS,
+  MOCK_CLASSES,
+  INITIAL_ANNOUNCEMENTS,
+  INITIAL_ACTIVITIES,
+  INITIAL_ATTENDANCE,
+  INITIAL_MESSAGES,
+} from '../models/mockData';
 
 dotenv.config();
 
 const dbUrl = process.env.DATABASE_URL || 'postgres://postgres:MyDb0720@localhost:5432/kinderconnect';
 const parsedUrl = new URL(dbUrl);
 const dbName = parsedUrl.pathname.replace('/', '') || 'kinderconnect';
-parsedUrl.pathname = '/postgres'; // Connect to default postgres db first
+parsedUrl.pathname = '/postgres';
 const defaultDbUrl = parsedUrl.toString();
 
 export let pool: Pool;
 
 export const query = async (text: string, params?: any[]) => {
-  if (!pool) throw new Error("Pool not initialized");
+  if (!pool) {
+    throw new Error('Pool not initialized');
+  }
+
   return pool.query(text, params);
 };
 
 export const initDb = async () => {
   try {
-    // 1. Connect to default 'postgres' database to check/create the target database
     const client = new Client({ connectionString: defaultDbUrl });
     await client.connect();
 
-    const res = await client.query(`SELECT datname FROM pg_catalog.pg_database WHERE datname = $1`, [dbName]);
-    
+    const res = await client.query('SELECT datname FROM pg_catalog.pg_database WHERE datname = $1', [dbName]);
+
     if (res.rowCount === 0) {
       console.log(`Database '${dbName}' not found, creating it...`);
       await client.query(`CREATE DATABASE "${dbName}"`);
@@ -33,12 +43,11 @@ export const initDb = async () => {
     } else {
       console.log(`Database '${dbName}' already exists.`);
     }
+
     await client.end();
 
-    // 2. Now connect to the target database and initialize schema
     pool = new Pool({ connectionString: dbUrl });
 
-    // Drop existing tables for a clean slate during dev
     await pool.query(`
       DROP TABLE IF EXISTS messages CASCADE;
       DROP TABLE IF EXISTS attendance_records CASCADE;
@@ -53,14 +62,14 @@ export const initDb = async () => {
       DROP TABLE IF EXISTS users CASCADE;
     `);
 
-    // Create tables
     await pool.query(`
       CREATE TABLE users (
         id VARCHAR(50) PRIMARY KEY,
         name VARCHAR(255) NOT NULL,
         phone VARCHAR(20) UNIQUE NOT NULL,
         role VARCHAR(50) NOT NULL,
-        password VARCHAR(255) NOT NULL
+        password VARCHAR(255) NOT NULL,
+        avatar VARCHAR(10) NOT NULL DEFAULT ''
       );
 
       CREATE TABLE classes (
@@ -71,6 +80,8 @@ export const initDb = async () => {
       CREATE TABLE students (
         id VARCHAR(50) PRIMARY KEY,
         name VARCHAR(255) NOT NULL,
+        dob VARCHAR(20) NOT NULL,
+        photo TEXT NOT NULL DEFAULT '',
         "classId" VARCHAR(50) REFERENCES classes(id) ON DELETE SET NULL
       );
 
@@ -123,21 +134,21 @@ export const initDb = async () => {
       CREATE TABLE messages (
         id SERIAL PRIMARY KEY,
         "fromId" VARCHAR(50) NOT NULL,
-        "toId" VARCHAR(50) NOT NULL,
+        "toId" VARCHAR(50),
         text TEXT NOT NULL,
         timestamp VARCHAR(50) NOT NULL,
-        read BOOLEAN DEFAULT false
+        read BOOLEAN DEFAULT false,
+        kind VARCHAR(50) NOT NULL DEFAULT 'direct'
       );
     `);
 
-    // Insert mock users with hashed passwords
     const salt = await bcrypt.genSalt(10);
     const defaultPassword = await bcrypt.hash('password123', salt);
 
     for (const user of MOCK_USERS) {
       await pool.query(
-        'INSERT INTO users (id, name, phone, role, password) VALUES ($1, $2, $3, $4, $5) ON CONFLICT (id) DO NOTHING',
-        [user.id, user.name, user.phone, user.role, defaultPassword]
+        'INSERT INTO users (id, name, phone, role, password, avatar) VALUES ($1, $2, $3, $4, $5, $6) ON CONFLICT (id) DO NOTHING',
+        [user.id, user.name, user.phone, user.role, defaultPassword, user.avatar]
       );
     }
 
@@ -150,15 +161,28 @@ export const initDb = async () => {
 
     for (const student of MOCK_STUDENTS) {
       await pool.query(
-        'INSERT INTO students (id, name, "classId") VALUES ($1, $2, $3) ON CONFLICT (id) DO NOTHING',
-        [student.id, student.name, student.classId]
+        'INSERT INTO students (id, name, dob, photo, "classId") VALUES ($1, $2, $3, $4, $5) ON CONFLICT (id) DO NOTHING',
+        [student.id, student.name, student.dob, student.photo, student.classId]
       );
     }
 
-    // Populate Join Tables for mock relationships
-    await pool.query('INSERT INTO class_teachers (class_id, teacher_id) VALUES ($1, $2) ON CONFLICT DO NOTHING', ['c1', 't1']);
-    await pool.query('INSERT INTO parent_students (parent_id, student_id) VALUES ($1, $2) ON CONFLICT DO NOTHING', ['p1', 's1']);
-    await pool.query('INSERT INTO parent_students (parent_id, student_id) VALUES ($1, $2) ON CONFLICT DO NOTHING', ['p2', 's2']);
+    for (const user of MOCK_USERS.filter((entry) => entry.role === 'teacher')) {
+      for (const classId of user.classIds ?? []) {
+        await pool.query(
+          'INSERT INTO class_teachers (class_id, teacher_id) VALUES ($1, $2) ON CONFLICT DO NOTHING',
+          [classId, user.id]
+        );
+      }
+    }
+
+    for (const student of MOCK_STUDENTS) {
+      if (student.parentId) {
+        await pool.query(
+          'INSERT INTO parent_students (parent_id, student_id) VALUES ($1, $2) ON CONFLICT DO NOTHING',
+          [student.parentId, student.id]
+        );
+      }
+    }
 
     for (const ann of INITIAL_ANNOUNCEMENTS) {
       await pool.query(
@@ -182,15 +206,12 @@ export const initDb = async () => {
     }
 
     for (const msg of INITIAL_MESSAGES) {
-      try {
-        await pool.query(
-          'INSERT INTO messages (id, "fromId", "toId", text, timestamp, read) VALUES ($1, $2, $3, $4, $5, $6) ON CONFLICT (id) DO NOTHING',
-          [msg.id, msg.fromId, msg.toId, msg.text, msg.timestamp, msg.read]
-        );
-      } catch (e) { /* swallow duplicate */ }
+      await pool.query(
+        'INSERT INTO messages (id, "fromId", "toId", text, timestamp, read, kind) VALUES ($1, $2, $3, $4, $5, $6, $7) ON CONFLICT (id) DO NOTHING',
+        [msg.id, msg.fromId, msg.toId, msg.text, msg.timestamp, msg.read, msg.kind]
+      );
     }
 
-    // Fix sequences pushed out of sync by manual ID inserts
     await pool.query(`SELECT setval('activities_id_seq', COALESCE((SELECT MAX(id) FROM activities), 1));`);
     await pool.query(`SELECT setval('announcements_id_seq', COALESCE((SELECT MAX(id) FROM announcements), 1));`);
     await pool.query(`SELECT setval('messages_id_seq', COALESCE((SELECT MAX(id) FROM messages), 1));`);

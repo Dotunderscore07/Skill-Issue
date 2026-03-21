@@ -1,28 +1,40 @@
-export type UserRole = 'teacher' | 'parent';
+export type UserRole = 'coordinator' | 'teacher' | 'parent';
 export type AttendanceStatus = 'present' | 'late' | 'absent' | 'unmarked';
 export type AnnouncementType = 'info' | 'urgent' | 'event';
 export type MoodType = 'happy' | 'neutral' | 'sad' | 'energetic';
-export type ViewType = 'dashboard' | 'messages' | 'attendance' | 'announcements' | 'activities';
+export type MessageKind = 'direct' | 'broadcast';
+export type ViewType =
+  | 'dashboard'
+  | 'messages'
+  | 'attendance'
+  | 'announcements'
+  | 'activities'
+  | 'teachers'
+  | 'children'
+  | 'classes';
 
 export interface User {
   id: string;
   name: string;
+  phone?: string;
   role: UserRole;
   avatar: string;
-  classId?: string;
+  classIds?: string[];
 }
 
 export interface Class {
   id: string;
   name: string;
+  teacherIds?: string[];
 }
 
 export interface Student {
   id: string;
   name: string;
+  dob: string;
   classId: string;
-  parentId: string;
-  avatar: string;
+  parentId?: string;
+  photo: string;
 }
 
 export interface Announcement {
@@ -50,8 +62,9 @@ export interface AttendanceRecord {
 export interface Message {
   id: number;
   fromId: string;
-  toId: string;
+  toId: string | null;
   text: string;
   timestamp: string;
   read: boolean;
+  kind: MessageKind;
 }

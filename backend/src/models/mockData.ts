@@ -9,15 +9,16 @@ import {
 } from '../interfaces';
 
 export const MOCK_USERS: IUser[] = [
-  { id: 't1', name: 'Ms. Johnson', phone: '1111111111', role: 'teacher', avatar: '👩‍🏫', classId: 'c1' },
-  { id: 'p1', name: 'Mr. Smith', phone: '2222222222', role: 'parent', avatar: '👨‍💼' },
-  { id: 'p2', name: 'Mrs. Garcia', phone: '3333333333', role: 'parent', avatar: '👩‍⚕️' },
+  { id: 'co1', name: 'Coordinator Mia', phone: '9999999999', role: 'coordinator', avatar: 'CM' },
+  { id: 't1', name: 'Ms. Johnson', phone: '1111111111', role: 'teacher', avatar: 'MJ', classIds: ['c1'] },
+  { id: 'p1', name: 'Mr. Smith', phone: '2222222222', role: 'parent', avatar: 'MS' },
+  { id: 'p2', name: 'Mrs. Garcia', phone: '3333333333', role: 'parent', avatar: 'MG' },
 ];
 
 export const MOCK_STUDENTS: IStudent[] = [
-  { id: 's1', name: 'Alex Smith', classId: 'c1', avatar: '👦', parentId: 'p1' },
-  { id: 's2', name: 'Bella Garcia', classId: 'c1', avatar: '👧', parentId: 'p2' },
-  { id: 's3', name: 'Charlie Brown', classId: 'c1', avatar: '🧒', parentId: 'p1' },
+  { id: 's1', name: 'Alex Smith', dob: '2019-03-14', classId: 'c1', photo: '', parentId: 'p1' },
+  { id: 's2', name: 'Bella Garcia', dob: '2019-07-02', classId: 'c1', photo: '', parentId: 'p2' },
+  { id: 's3', name: 'Charlie Brown', dob: '2020-01-19', classId: 'c1', photo: '', parentId: 'p1' },
 ];
 
 export const MOCK_CLASSES: IClass[] = [
@@ -36,7 +37,7 @@ export const INITIAL_ANNOUNCEMENTS: IAnnouncement[] = [
     id: 2,
     text: 'Parent-Teacher meetings scheduled for next week.',
     date: '2023-10-20',
-    author: 'Admin',
+    author: 'Coordinator Mia',
     type: 'info',
   },
 ];
@@ -79,6 +80,7 @@ export const INITIAL_MESSAGES: IMessage[] = [
     text: 'Hi Ms. Johnson, will Alex need boots for the trip?',
     timestamp: '10:30 AM',
     read: true,
+    kind: 'direct',
   },
   {
     id: 2,
@@ -87,5 +89,15 @@ export const INITIAL_MESSAGES: IMessage[] = [
     text: 'Hi Mr. Smith! Yes, it might be muddy.',
     timestamp: '10:35 AM',
     read: true,
+    kind: 'direct',
+  },
+  {
+    id: 3,
+    fromId: 'co1',
+    toId: null,
+    text: 'Welcome to KinderConnect. This is a coordinator broadcast message.',
+    timestamp: '09:00 AM',
+    read: true,
+    kind: 'broadcast',
   },
 ];

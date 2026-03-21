@@ -15,12 +15,51 @@ import {
   Class,
 } from '../types';
 import {
-  MOCK_USERS,
-  INITIAL_ANNOUNCEMENTS,
-  INITIAL_ACTIVITIES,
-  INITIAL_ATTENDANCE,
-  INITIAL_MESSAGES,
-} from '../data/mockData';
+  AnnouncementApi,
+  ActivityApi,
+  AttendanceApi,
+  MessageApi,
+  AuthApi,
+  StudentApi,
+  ClassApi,
+  UserApi,
+  TeacherApi,
+  DashboardApi,
+} from '../../../lib/api-client';
+
+interface CoordinatorSummary {
+  totalTeachers: number;
+  totalChildren: number;
+  totalParents: number;
+  announcements: Announcement[];
+}
+
+interface TeacherPayload {
+  name: string;
+  phone: string;
+  password: string;
+  classIds: string[];
+}
+
+interface UpdateTeacherPayload {
+  name: string;
+  phone: string;
+  password?: string;
+  classIds: string[];
+}
+
+interface StudentPayload {
+  name: string;
+  dob: string;
+  photo: string;
+  parentId?: string;
+  classId: string;
+}
+
+interface ClassPayload {
+  name: string;
+  teacherIds: string[];
+}
 
 interface AppContextValue {
   user: User | null;
@@ -31,29 +70,36 @@ interface AppContextValue {
   activities: Activity[];
   attendance: AttendanceRecord[];
   messages: Message[];
+  broadcastMessages: Message[];
   allUsers: User[];
   students: Student[];
   classes: Class[];
   selectedChild: Student | null;
   selectedClass: Class | null;
   selectedDate: string;
+  coordinatorSummary: CoordinatorSummary | null;
   login: (userData: User, token: string) => void;
   logout: () => void;
   setView: (view: ViewType) => void;
   setSelectedChild: (student: Student) => void;
   setSelectedClass: (cls: Class) => void;
   setSelectedDate: (date: string) => void;
-  addAnnouncement: (text: string, type: AnnouncementType, author: string) => void;
-  addActivity: (studentId: string, text: string, mood: MoodType) => void;
-  editActivity: (id: number, text: string, mood: MoodType) => void;
-  deleteActivity: (id: number) => void;
-  updateAttendance: (studentId: string, status: AttendanceStatus, date: string) => void;
-  sendMessage: (fromId: string, toId: string, text: string) => void;
+  addAnnouncement: (text: string, type: AnnouncementType, author: string) => Promise<void>;
+  addActivity: (studentId: string, text: string, mood: MoodType) => Promise<void>;
+  editActivity: (id: number, text: string, mood: MoodType) => Promise<void>;
+  deleteActivity: (id: number) => Promise<void>;
+  updateAttendance: (studentId: string, status: AttendanceStatus, date: string) => Promise<void>;
+  sendMessage: (toId: string, text: string) => Promise<void>;
+  sendBroadcastMessage: (text: string) => Promise<void>;
+  createTeacher: (payload: TeacherPayload) => Promise<void>;
+  updateTeacher: (id: string, payload: UpdateTeacherPayload) => Promise<void>;
+  createStudent: (payload: StudentPayload) => Promise<void>;
+  updateStudent: (id: string, payload: StudentPayload) => Promise<void>;
+  createClass: (payload: ClassPayload) => Promise<void>;
+  updateClass: (id: string, payload: ClassPayload) => Promise<void>;
 }
 
 const AppContext = createContext<AppContextValue | null>(null);
-
-import { AnnouncementApi, ActivityApi, AttendanceApi, MessageApi, AuthApi, StudentApi, ClassApi, UserApi } from '../../../lib/api-client';
 
 export function AppProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
@@ -64,72 +110,99 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const [activities, setActivities] = useState<Activity[]>([]);
   const [attendance, setAttendance] = useState<AttendanceRecord[]>([]);
   const [messages, setMessages] = useState<Message[]>([]);
+  const [broadcastMessages, setBroadcastMessages] = useState<Message[]>([]);
   const [allUsers, setAllUsers] = useState<User[]>([]);
   const [students, setStudents] = useState<Student[]>([]);
   const [classes, setClasses] = useState<Class[]>([]);
   const [selectedChild, setSelectedChild] = useState<Student | null>(null);
   const [selectedClass, setSelectedClass] = useState<Class | null>(null);
   const [selectedDate, setSelectedDate] = useState<string>(new Date().toISOString().split('T')[0]);
+  const [coordinatorSummary, setCoordinatorSummary] = useState<CoordinatorSummary | null>(null);
 
-  // Hydrate session on mount
+  const hydrateSelections = React.useCallback(
+    (nextUser: User | null, nextStudents: Student[], nextClasses: Class[]) => {
+      if (nextUser?.role === 'parent') {
+        const myChildren = nextStudents.filter((student) => student.parentId === nextUser.id);
+        setSelectedChild((current) => current && myChildren.some((student) => student.id === current.id) ? current : myChildren[0] ?? null);
+      } else {
+        setSelectedChild(null);
+      }
+
+      if (nextUser?.role === 'teacher') {
+        const preferredClassId = nextUser.classIds?.[0];
+        const fallbackClass =
+          nextClasses.find((entry) => entry.id === preferredClassId) ??
+          nextClasses.find((entry) => entry.teacherIds?.includes(nextUser.id));
+        setSelectedClass((current) => current && nextClasses.some((entry) => entry.id === current.id) ? current : fallbackClass ?? nextClasses[0] ?? null);
+      } else {
+        setSelectedClass(null);
+      }
+    },
+    []
+  );
+
+  const loadData = React.useCallback(async (activeUser: User) => {
+    const [anns, acts, atts, studs, clss, allUsrs, directMessages, broadcasts] = await Promise.all([
+      AnnouncementApi.getAll(),
+      ActivityApi.getAll(),
+      AttendanceApi.getAll(),
+      StudentApi.getAll(),
+      ClassApi.getAll(),
+      UserApi.getAll(),
+      MessageApi.getAll(),
+      activeUser.role === 'coordinator' ? MessageApi.getBroadcasts() : Promise.resolve([]),
+    ]);
+
+    setAnnouncements(anns);
+    setActivities(acts);
+    setAttendance(atts);
+    setStudents(studs);
+    setClasses(clss);
+    setAllUsers(allUsrs);
+    setMessages(directMessages);
+    setBroadcastMessages(broadcasts);
+    hydrateSelections(activeUser, studs, clss);
+
+    if (activeUser.role === 'coordinator') {
+      const summary = await DashboardApi.getCoordinatorSummary();
+      setCoordinatorSummary(summary);
+    } else {
+      setCoordinatorSummary(null);
+    }
+  }, [hydrateSelections]);
+
   React.useEffect(() => {
     AuthApi.me()
       .then((userData) => {
         setUser(userData);
-        setToken('cookie'); // Trigger data fetch
+        setToken('cookie');
       })
       .catch(() => {
-        console.log('No active session.');
+        setUser(null);
       })
       .finally(() => {
         setAuthLoading(false);
       });
   }, []);
 
-  // Fetch real data when user logs in with a valid token
   React.useEffect(() => {
-    if (token) {
-      Promise.all([
-        AnnouncementApi.getAll(),
-        ActivityApi.getAll(),
-        AttendanceApi.getAll(),
-        StudentApi.getAll(),
-        ClassApi.getAll(),
-        UserApi.getAll(),
-      ]).then(([anns, acts, atts, studs, clss, allUsrs]) => {
-        setAnnouncements(anns);
-        setActivities(acts);
-        setAttendance(atts);
-        setStudents(studs);
-        setClasses(clss);
-        setAllUsers(allUsrs);
-
-        // Auto-select first child if parent
-        if (user?.role === 'parent') {
-          const myChildren = studs.filter((s: Student) => s.parentId === user.id);
-          if (myChildren.length > 0 && !selectedChild) {
-            setSelectedChild(myChildren[0]);
-          }
-        }
-        
-        // Auto-select first class if teacher
-        if (user?.role === 'teacher') {
-          if (clss.length > 0 && !selectedClass) {
-            setSelectedClass(clss[0]);
-          }
-        }
-      }).catch(err => console.error("Failed to load initial data:", err));
-    } else {
+    if (!token || !user) {
       setAnnouncements([]);
       setActivities([]);
       setAttendance([]);
       setStudents([]);
       setClasses([]);
       setAllUsers([]);
+      setMessages([]);
+      setBroadcastMessages([]);
       setSelectedChild(null);
       setSelectedClass(null);
+      setCoordinatorSummary(null);
+      return;
     }
-  }, [token, user?.id, user?.role]);
+
+    loadData(user).catch((err) => console.error('Failed to load initial data:', err));
+  }, [token, user, loadData]);
 
   const login = (userData: User, authToken: string) => {
     setUser(userData);
@@ -146,6 +219,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     } catch (e) {
       console.error(e);
     }
+
     setUser(null);
     setToken(null);
     if (typeof window !== 'undefined') {
@@ -154,68 +228,85 @@ export function AppProvider({ children }: { children: ReactNode }) {
   };
 
   const addAnnouncement = async (text: string, type: AnnouncementType, author: string) => {
-    try {
-      const newAnn = await AnnouncementApi.create(text, type, author);
-      setAnnouncements((prev) => [newAnn, ...prev]);
-    } catch (err) {
-      console.error('Failed to create announcement', err);
-      throw err;
-    }
+    const newAnnouncement = await AnnouncementApi.create(text, type, author);
+    setAnnouncements((prev) => [newAnnouncement, ...prev]);
+    setCoordinatorSummary((prev) =>
+      prev
+        ? {
+            ...prev,
+            announcements: [newAnnouncement, ...prev.announcements].slice(0, 5),
+          }
+        : prev
+    );
   };
 
   const addActivity = async (studentId: string, text: string, mood: MoodType) => {
-    try {
-      const newActivity = await ActivityApi.create(studentId, text, mood);
-      setActivities((prev) => [newActivity, ...prev]);
-    } catch (err) {
-      console.error('Failed to create activity', err);
-      throw err;
-    }
+    const newActivity = await ActivityApi.create(studentId, text, mood);
+    setActivities((prev) => [newActivity, ...prev]);
   };
 
   const editActivity = async (id: number, text: string, mood: MoodType) => {
-    try {
-      const updated = await ActivityApi.update(id, text, mood);
-      setActivities((prev) => prev.map((a) => (a.id === id ? updated : a)));
-    } catch (err) {
-      console.error('Failed to update activity', err);
-      throw err;
-    }
+    const updated = await ActivityApi.update(id, text, mood);
+    setActivities((prev) => prev.map((activity) => (activity.id === id ? updated : activity)));
   };
 
   const deleteActivity = async (id: number) => {
-    try {
-      await ActivityApi.delete(id);
-      setActivities((prev) => prev.filter((a) => a.id !== id));
-    } catch (err) {
-      console.error('Failed to delete activity', err);
-      throw err;
-    }
+    await ActivityApi.delete(id);
+    setActivities((prev) => prev.filter((activity) => activity.id !== id));
   };
 
   const updateAttendance = async (studentId: string, status: AttendanceStatus, date: string) => {
-    try {
-      const updatedRecord = await AttendanceApi.update(studentId, status, date);
-      setAttendance((prev) => {
-        const filtered = prev.filter((a) => !(a.studentId === studentId && a.date === date));
-        return [...filtered, updatedRecord];
-      });
-    } catch (err) {
-      console.error('Failed to update attendance', err);
-      throw err;
-    }
+    const updatedRecord = await AttendanceApi.update(studentId, status, date);
+    setAttendance((prev) => {
+      const filtered = prev.filter((entry) => !(entry.studentId === studentId && entry.date === date));
+      return [...filtered, updatedRecord];
+    });
   };
 
-  const sendMessage = (fromId: string, toId: string, text: string) => {
-    const msg: Message = {
-      id: Date.now(),
-      fromId,
-      toId,
-      text,
-      timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-      read: false,
-    };
-    setMessages((prev) => [...prev, msg]);
+  const sendMessage = async (toId: string, text: string) => {
+    const newMessage = await MessageApi.send(toId, text);
+    setMessages((prev) => [...prev, newMessage]);
+  };
+
+  const sendBroadcastMessage = async (text: string) => {
+    const newMessage = await MessageApi.sendBroadcast(text);
+    setBroadcastMessages((prev) => [newMessage, ...prev]);
+  };
+
+  const createTeacher = async (payload: TeacherPayload) => {
+    const created = await TeacherApi.create(payload);
+    setAllUsers((prev) => [...prev, created].sort((a, b) => a.name.localeCompare(b.name)));
+    setCoordinatorSummary((prev) => (prev ? { ...prev, totalTeachers: prev.totalTeachers + 1 } : prev));
+  };
+
+  const updateTeacher = async (id: string, payload: UpdateTeacherPayload) => {
+    const updated = await TeacherApi.update(id, payload);
+    setAllUsers((prev) => prev.map((entry) => (entry.id === id ? updated : entry)));
+  };
+
+  const createStudent = async (payload: StudentPayload) => {
+    const created = await StudentApi.create(payload);
+    setStudents((prev) => [...prev, created].sort((a, b) => a.name.localeCompare(b.name)));
+    setCoordinatorSummary((prev) => (prev ? { ...prev, totalChildren: prev.totalChildren + 1 } : prev));
+  };
+
+  const updateStudent = async (id: string, payload: StudentPayload) => {
+    const updated = await StudentApi.update(id, payload);
+    setStudents((prev) => prev.map((entry) => (entry.id === id ? updated : entry)));
+  };
+
+  const createClass = async (payload: ClassPayload) => {
+    const created = await ClassApi.create(payload);
+    setClasses((prev) => [...prev, created].sort((a, b) => a.name.localeCompare(b.name)));
+    const refreshedUsers = await UserApi.getAll();
+    setAllUsers(refreshedUsers);
+  };
+
+  const updateClass = async (id: string, payload: ClassPayload) => {
+    const updated = await ClassApi.update(id, payload);
+    setClasses((prev) => prev.map((entry) => (entry.id === id ? updated : entry)));
+    const refreshedUsers = await UserApi.getAll();
+    setAllUsers(refreshedUsers);
   };
 
   return (
@@ -229,12 +320,14 @@ export function AppProvider({ children }: { children: ReactNode }) {
         activities,
         attendance,
         messages,
+        broadcastMessages,
         allUsers,
         students,
         classes,
         selectedChild,
         selectedClass,
         selectedDate,
+        coordinatorSummary,
         login,
         logout,
         setView,
@@ -247,6 +340,13 @@ export function AppProvider({ children }: { children: ReactNode }) {
         deleteActivity,
         updateAttendance,
         sendMessage,
+        sendBroadcastMessage,
+        createTeacher,
+        updateTeacher,
+        createStudent,
+        updateStudent,
+        createClass,
+        updateClass,
       }}
     >
       {children}
@@ -256,6 +356,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
 export function useAppContext(): AppContextValue {
   const ctx = useContext(AppContext);
-  if (!ctx) throw new Error('useAppContext must be used within AppProvider');
+  if (!ctx) {
+    throw new Error('useAppContext must be used within AppProvider');
+  }
   return ctx;
 }

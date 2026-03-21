@@ -84,13 +84,13 @@ interface AppContextValue {
   setSelectedChild: (student: Student) => void;
   setSelectedClass: (cls: Class) => void;
   setSelectedDate: (date: string) => void;
-  addAnnouncement: (text: string, type: AnnouncementType, author: string) => Promise<void>;
+  addAnnouncement: (text: string, type: AnnouncementType, author: string, classId?: string) => Promise<void>;
   addActivity: (studentId: string, text: string, mood: MoodType) => Promise<void>;
   editActivity: (id: number, text: string, mood: MoodType) => Promise<void>;
   deleteActivity: (id: number) => Promise<void>;
   updateAttendance: (studentId: string, status: AttendanceStatus, date: string) => Promise<void>;
-  sendMessage: (toId: string, text: string) => Promise<void>;
-  sendBroadcastMessage: (text: string) => Promise<void>;
+  sendMessage: (toId: string, text: string, image?: string) => Promise<void>;
+  sendBroadcastMessage: (text: string, image?: string) => Promise<void>;
   createTeacher: (payload: TeacherPayload) => Promise<void>;
   updateTeacher: (id: string, payload: UpdateTeacherPayload) => Promise<void>;
   createStudent: (payload: StudentPayload) => Promise<void>;
@@ -118,6 +118,64 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const [selectedClass, setSelectedClass] = useState<Class | null>(null);
   const [selectedDate, setSelectedDate] = useState<string>(new Date().toISOString().split('T')[0]);
   const [coordinatorSummary, setCoordinatorSummary] = useState<CoordinatorSummary | null>(null);
+
+  const syncTeacherAssignments = React.useCallback((teacherId: string, classIds: string[]) => {
+    setClasses((prev) =>
+      prev.map((entry) => {
+        const existingTeacherIds = entry.teacherIds ?? [];
+        const withoutTeacher = existingTeacherIds.filter((id) => id !== teacherId);
+        return {
+          ...entry,
+          teacherIds: classIds.includes(entry.id) ? [...withoutTeacher, teacherId] : withoutTeacher,
+        };
+      })
+    );
+
+    setUser((prev) => {
+      if (!prev || prev.role !== 'teacher' || prev.id !== teacherId) {
+        return prev;
+      }
+
+      return {
+        ...prev,
+        classIds,
+      };
+    });
+  }, []);
+
+  const syncTeacherClassIds = React.useCallback((teacherIdsByClass: Record<string, string[]>) => {
+    setAllUsers((prev) =>
+      prev.map((userEntry) => {
+        if (userEntry.role !== 'teacher') {
+          return userEntry;
+        }
+
+        const classIds = Object.entries(teacherIdsByClass)
+          .filter(([, teacherIds]) => teacherIds.includes(userEntry.id))
+          .map(([classId]) => classId);
+
+        return {
+          ...userEntry,
+          classIds,
+        };
+      })
+    );
+
+    setUser((prev) => {
+      if (!prev || prev.role !== 'teacher') {
+        return prev;
+      }
+
+      const classIds = Object.entries(teacherIdsByClass)
+        .filter(([, teacherIds]) => teacherIds.includes(prev.id))
+        .map(([classId]) => classId);
+
+      return {
+        ...prev,
+        classIds,
+      };
+    });
+  }, []);
 
   const hydrateSelections = React.useCallback(
     (nextUser: User | null, nextStudents: Student[], nextClasses: Class[]) => {
@@ -227,8 +285,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
     }
   };
 
-  const addAnnouncement = async (text: string, type: AnnouncementType, author: string) => {
-    const newAnnouncement = await AnnouncementApi.create(text, type, author);
+  const addAnnouncement = async (text: string, type: AnnouncementType, author: string, classId?: string) => {
+    const newAnnouncement = await AnnouncementApi.create(text, type, author, classId);
     setAnnouncements((prev) => [newAnnouncement, ...prev]);
     setCoordinatorSummary((prev) =>
       prev
@@ -263,25 +321,27 @@ export function AppProvider({ children }: { children: ReactNode }) {
     });
   };
 
-  const sendMessage = async (toId: string, text: string) => {
-    const newMessage = await MessageApi.send(toId, text);
+  const sendMessage = async (toId: string, text: string, image?: string) => {
+    const newMessage = await MessageApi.send(toId, text, image);
     setMessages((prev) => [...prev, newMessage]);
   };
 
-  const sendBroadcastMessage = async (text: string) => {
-    const newMessage = await MessageApi.sendBroadcast(text);
+  const sendBroadcastMessage = async (text: string, image?: string) => {
+    const newMessage = await MessageApi.sendBroadcast(text, image);
     setBroadcastMessages((prev) => [newMessage, ...prev]);
   };
 
   const createTeacher = async (payload: TeacherPayload) => {
     const created = await TeacherApi.create(payload);
     setAllUsers((prev) => [...prev, created].sort((a, b) => a.name.localeCompare(b.name)));
+    syncTeacherAssignments(created.id, created.classIds ?? payload.classIds);
     setCoordinatorSummary((prev) => (prev ? { ...prev, totalTeachers: prev.totalTeachers + 1 } : prev));
   };
 
   const updateTeacher = async (id: string, payload: UpdateTeacherPayload) => {
     const updated = await TeacherApi.update(id, payload);
     setAllUsers((prev) => prev.map((entry) => (entry.id === id ? updated : entry)));
+    syncTeacherAssignments(updated.id, updated.classIds ?? payload.classIds);
   };
 
   const createStudent = async (payload: StudentPayload) => {
@@ -297,16 +357,20 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
   const createClass = async (payload: ClassPayload) => {
     const created = await ClassApi.create(payload);
-    setClasses((prev) => [...prev, created].sort((a, b) => a.name.localeCompare(b.name)));
-    const refreshedUsers = await UserApi.getAll();
-    setAllUsers(refreshedUsers);
+    setClasses((prev) => {
+      const nextClasses = [...prev, created].sort((a, b) => a.name.localeCompare(b.name));
+      syncTeacherClassIds(Object.fromEntries(nextClasses.map((entry) => [entry.id, entry.teacherIds ?? []])));
+      return nextClasses;
+    });
   };
 
   const updateClass = async (id: string, payload: ClassPayload) => {
     const updated = await ClassApi.update(id, payload);
-    setClasses((prev) => prev.map((entry) => (entry.id === id ? updated : entry)));
-    const refreshedUsers = await UserApi.getAll();
-    setAllUsers(refreshedUsers);
+    setClasses((prev) => {
+      const nextClasses = prev.map((entry) => (entry.id === id ? updated : entry));
+      syncTeacherClassIds(Object.fromEntries(nextClasses.map((entry) => [entry.id, entry.teacherIds ?? []])));
+      return nextClasses;
+    });
   };
 
   return (

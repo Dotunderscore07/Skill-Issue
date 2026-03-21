@@ -113,7 +113,8 @@ export const initDb = async () => {
         text TEXT NOT NULL,
         date VARCHAR(50) NOT NULL,
         author VARCHAR(255) NOT NULL,
-        type VARCHAR(50) NOT NULL
+        type VARCHAR(50) NOT NULL,
+        "classId" VARCHAR(50) REFERENCES classes(id) ON DELETE SET NULL
       );
 
       CREATE TABLE activities (
@@ -136,6 +137,7 @@ export const initDb = async () => {
         "fromId" VARCHAR(50) NOT NULL,
         "toId" VARCHAR(50),
         text TEXT NOT NULL,
+        image TEXT NOT NULL DEFAULT '',
         timestamp VARCHAR(50) NOT NULL,
         read BOOLEAN DEFAULT false,
         kind VARCHAR(50) NOT NULL DEFAULT 'direct'
@@ -186,8 +188,8 @@ export const initDb = async () => {
 
     for (const ann of INITIAL_ANNOUNCEMENTS) {
       await pool.query(
-        'INSERT INTO announcements (id, text, date, author, type) VALUES ($1, $2, $3, $4, $5) ON CONFLICT (id) DO NOTHING',
-        [ann.id, ann.text, ann.date, ann.author, ann.type]
+        'INSERT INTO announcements (id, text, date, author, type, "classId") VALUES ($1, $2, $3, $4, $5, $6) ON CONFLICT (id) DO NOTHING',
+        [ann.id, ann.text, ann.date, ann.author, ann.type, ann.classId ?? null]
       );
     }
 
@@ -207,8 +209,8 @@ export const initDb = async () => {
 
     for (const msg of INITIAL_MESSAGES) {
       await pool.query(
-        'INSERT INTO messages (id, "fromId", "toId", text, timestamp, read, kind) VALUES ($1, $2, $3, $4, $5, $6, $7) ON CONFLICT (id) DO NOTHING',
-        [msg.id, msg.fromId, msg.toId, msg.text, msg.timestamp, msg.read, msg.kind]
+        'INSERT INTO messages (id, "fromId", "toId", text, image, timestamp, read, kind) VALUES ($1, $2, $3, $4, $5, $6, $7, $8) ON CONFLICT (id) DO NOTHING',
+        [msg.id, msg.fromId, msg.toId, msg.text, msg.image ?? '', msg.timestamp, msg.read, msg.kind]
       );
     }
 

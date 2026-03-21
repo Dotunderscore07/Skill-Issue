@@ -8,13 +8,14 @@ import { useAppContext } from '../../modules/shared/context/AppContext';
 interface AnnouncementsViewProps {
   user: User;
   announcements: Announcement[];
-  onAdd: (text: string, type: AnnouncementType, author: string) => Promise<void>;
+  onAdd: (text: string, type: AnnouncementType, author: string, classId?: string) => Promise<void>;
 }
 
 export function AnnouncementsView({ user, announcements, onAdd }: AnnouncementsViewProps) {
-  const { selectedDate, setSelectedDate } = useAppContext();
+  const { selectedDate, setSelectedDate, selectedClass, classes } = useAppContext();
   const [text, setText] = useState('');
   const [type, setType] = useState<AnnouncementType>('info');
+  const [targetClassId, setTargetClassId] = useState('');
 
   const today = new Date().toISOString().split('T')[0];
   const canPost = selectedDate === today;
@@ -22,7 +23,8 @@ export function AnnouncementsView({ user, announcements, onAdd }: AnnouncementsV
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!text) return;
-    await onAdd(text, type, user.name);
+    const classId = user.role === 'teacher' ? selectedClass?.id : targetClassId || undefined;
+    await onAdd(text, type, user.name, classId);
     setText('');
   };
 
@@ -40,16 +42,33 @@ export function AnnouncementsView({ user, announcements, onAdd }: AnnouncementsV
               onChange={(e) => setText(e.target.value)}
             />
             <div className="flex justify-between items-center">
-              <select
-                value={type}
-                onChange={(e) => setType(e.target.value as AnnouncementType)}
-                className="p-2 border border-gray-200 rounded-lg text-sm bg-white"
-              >
-                <option value="info">General Info</option>
-                <option value="urgent">Urgent</option>
-                <option value="event">Event</option>
-              </select>
-              <Button type="submit">{user.role === 'coordinator' ? 'Post to All Users' : 'Post to Class'}</Button>
+              <div className="flex items-center gap-3">
+                <select
+                  value={type}
+                  onChange={(e) => setType(e.target.value as AnnouncementType)}
+                  className="p-2 border border-gray-200 rounded-lg text-sm bg-white"
+                >
+                  <option value="info">General Info</option>
+                  <option value="urgent">Urgent</option>
+                  <option value="event">Event</option>
+                </select>
+                {user.role === 'coordinator' && (
+                  <select
+                    value={targetClassId}
+                    onChange={(e) => setTargetClassId(e.target.value)}
+                    className="p-2 border border-gray-200 rounded-lg text-sm bg-white"
+                  >
+                    <option value="">All Classes</option>
+                    {classes.map((entry) => (
+                      <option key={entry.id} value={entry.id}>{entry.name}</option>
+                    ))}
+                  </select>
+                )}
+                {user.role === 'teacher' && selectedClass && (
+                  <span className="text-sm text-gray-500">Target: {selectedClass.name}</span>
+                )}
+              </div>
+              <Button type="submit">{user.role === 'coordinator' ? 'Post Announcement' : 'Post to Class'}</Button>
             </div>
           </form>
         </Card>
@@ -76,6 +95,7 @@ export function AnnouncementsView({ user, announcements, onAdd }: AnnouncementsV
                       {announcement.type.toUpperCase()}
                     </Badge>
                     <span className="text-xs text-gray-500 font-medium">{announcement.author}</span>
+                    <span className="text-xs text-gray-400">{announcement.className ?? 'All Classes'}</span>
                   </div>
                   <span className="text-xs text-gray-400">{announcement.date}</span>
                 </div>

@@ -34,6 +34,8 @@ export interface IAnnouncement {
   date: string;
   author: string;
   type: AnnouncementType;
+  classId?: string | null;
+  className?: string | null;
 }
 
 export interface IActivity {
@@ -55,6 +57,7 @@ export interface IMessage {
   fromId: string;
   toId: string | null;
   text: string;
+  image?: string;
   timestamp: string;
   read: boolean;
   kind: MessageKind;

@@ -1,7 +1,7 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
-import { Send, Search, User as UserIcon } from 'lucide-react';
+import React, { useEffect, useState } from 'react';
+import { ImagePlus, Send, Search, User as UserIcon } from 'lucide-react';
 import { Button } from '../ui';
 import { User, Message } from '../../modules/shared/types';
 import { useAppContext } from '../../modules/shared/context/AppContext';
@@ -9,27 +9,38 @@ import { useAppContext } from '../../modules/shared/context/AppContext';
 interface MessagingSystemProps {
   user: User;
   messages: Message[];
-  onSend: (toId: string, text: string) => Promise<void>;
+  onSend: (toId: string, text: string, image?: string) => Promise<void>;
 }
 
 export function MessagingSystem({ user, messages, onSend }: MessagingSystemProps) {
-  const { allUsers, students, selectedClass, selectedChild } = useAppContext();
+  const { allUsers, students } = useAppContext();
   const [selectedThread, setSelectedThread] = useState<string | null>(null);
   const [newMessage, setNewMessage] = useState('');
+  const [attachedImage, setAttachedImage] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
   const [activeThreads, setActiveThreads] = useState<User[]>([]);
 
+  const parentClassIds = Array.from(
+    new Set(
+      students
+        .filter((student) => student.parentId === user.id)
+        .map((student) => student.classId)
+    )
+  );
+
+  const teacherStudentParentIds = Array.from(
+    new Set(
+      students
+        .filter((student) => (user.classIds ?? []).includes(student.classId))
+        .map((student) => student.parentId)
+        .filter(Boolean)
+    )
+  );
+
   const availableToSearch =
     user.role === 'teacher'
-      ? allUsers.filter((entry) => {
-          if (entry.role !== 'parent') return false;
-          const classStudentParentIds = students
-            .filter((student) => student.classId === selectedClass?.id)
-            .map((student) => student.parentId)
-            .filter(Boolean);
-          return classStudentParentIds.includes(entry.id);
-        })
-      : allUsers.filter((entry) => entry.role === 'teacher' && (entry.classIds ?? []).includes(selectedChild?.classId ?? ''));
+      ? allUsers.filter((entry) => entry.role === 'parent' && teacherStudentParentIds.includes(entry.id))
+      : allUsers.filter((entry) => entry.role === 'teacher' && (entry.classIds ?? []).some((classId) => parentClassIds.includes(classId)));
 
   useEffect(() => {
     const historicalPartnerIds = new Set<string>();
@@ -54,11 +65,21 @@ export function MessagingSystem({ user, messages, onSend }: MessagingSystemProps
 
   const chatPartner = allUsers.find((entry) => entry.id === selectedThread);
 
+  const handleImageChange = (file: File | null) => {
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = () => {
+      setAttachedImage(typeof reader.result === 'string' ? reader.result : '');
+    };
+    reader.readAsDataURL(file);
+  };
+
   const handleSend = async (event: React.FormEvent) => {
     event.preventDefault();
-    if (!newMessage.trim() || !selectedThread) return;
-    await onSend(selectedThread, newMessage);
+    if ((!newMessage.trim() && !attachedImage) || !selectedThread) return;
+    await onSend(selectedThread, newMessage, attachedImage);
     setNewMessage('');
+    setAttachedImage('');
   };
 
   const handleSelectUser = (partner: User) => {
@@ -97,7 +118,12 @@ export function MessagingSystem({ user, messages, onSend }: MessagingSystemProps
                   className="w-full text-left p-3 flex items-center gap-3 hover:bg-white rounded-lg transition-colors border-b border-gray-50 last:border-0"
                 >
                   <span className="w-10 h-10 rounded-full bg-indigo-100 text-indigo-700 font-bold flex items-center justify-center">{entry.avatar}</span>
-                  <p className="font-semibold text-sm text-gray-900">{entry.name}</p>
+                  <div>
+                    <p className="font-semibold text-sm text-gray-900">{entry.name}</p>
+                    <p className="text-xs text-gray-400">
+                      {entry.role === 'teacher' ? `Classes: ${(entry.classIds ?? []).join(', ')}` : 'Parent'}
+                    </p>
+                  </div>
                 </button>
               )) : (
                 <p className="text-xs text-gray-400 p-2 italic">No matches found.</p>
@@ -116,8 +142,8 @@ export function MessagingSystem({ user, messages, onSend }: MessagingSystemProps
                   <span className="w-10 h-10 rounded-full bg-indigo-100 text-indigo-700 font-bold flex items-center justify-center">{entry.avatar}</span>
                   <div>
                     <p className="font-semibold text-sm text-gray-900">{entry.name}</p>
-                    <p className="text-xs text-gray-500 truncate w-32">
-                      {messages.filter((message) => message.fromId === entry.id || message.toId === entry.id).pop()?.text || 'New conversation'}
+                    <p className="text-xs text-gray-500 truncate w-40">
+                      {messages.filter((message) => message.fromId === entry.id || message.toId === entry.id).pop()?.text || (messages.filter((message) => message.fromId === entry.id || message.toId === entry.id).pop()?.image ? 'Photo' : 'New conversation')}
                     </p>
                   </div>
                 </button>
@@ -157,7 +183,10 @@ export function MessagingSystem({ user, messages, onSend }: MessagingSystemProps
                           : 'bg-white text-gray-800 border border-gray-100 rounded-tl-none'
                       }`}
                     >
-                      <p className="text-sm">{message.text}</p>
+                      {message.text && <p className="text-sm whitespace-pre-wrap">{message.text}</p>}
+                      {message.image && (
+                        <img src={message.image} alt="Chat attachment" className="mt-2 rounded-xl max-h-64 object-cover" />
+                      )}
                       <p className={`text-[10px] mt-1 text-right ${isMe ? 'text-indigo-200' : 'text-gray-400'}`}>
                         {message.timestamp}
                       </p>
@@ -172,16 +201,29 @@ export function MessagingSystem({ user, messages, onSend }: MessagingSystemProps
               )}
             </div>
 
-            <form onSubmit={handleSend} className="p-4 bg-white border-t border-gray-100 flex gap-2">
-              <input
+            <form onSubmit={handleSend} className="p-4 bg-white border-t border-gray-100 space-y-3">
+              {attachedImage && (
+                <div className="w-24 h-24 rounded-xl overflow-hidden border border-gray-200">
+                  <img src={attachedImage} alt="Attachment preview" className="w-full h-full object-cover" />
+                </div>
+              )}
+              <textarea
                 value={newMessage}
                 onChange={(e) => setNewMessage(e.target.value)}
                 placeholder="Type a message..."
-                className="flex-1 px-4 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                rows={3}
+                className="w-full px-4 py-3 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 resize-none"
               />
-              <Button type="submit" className="w-12 h-10 !px-0 flex items-center justify-center">
-                <Send size={18} />
-              </Button>
+              <div className="flex items-center justify-between">
+                <label className="inline-flex items-center gap-2 text-sm text-gray-500 cursor-pointer">
+                  <ImagePlus size={18} />
+                  <span>Add Photo</span>
+                  <input type="file" accept="image/*" className="hidden" onChange={(e) => handleImageChange(e.target.files?.[0] ?? null)} />
+                </label>
+                <Button type="submit" className="min-w-24">
+                  <Send size={18} /> Send
+                </Button>
+              </div>
             </form>
           </>
         ) : (
@@ -190,7 +232,7 @@ export function MessagingSystem({ user, messages, onSend }: MessagingSystemProps
               <Send size={40} />
             </div>
             <h3 className="text-lg font-bold text-gray-700 mb-1">Your Inbox</h3>
-            <p className="text-sm max-w-xs">Select a parent or teacher from the list or use search to find someone new.</p>
+            <p className="text-sm max-w-xs">Select a teacher or parent from the list or use search to find someone new.</p>
           </div>
         )}
       </div>

@@ -3,6 +3,7 @@ import bcrypt from 'bcrypt';
 import { v4 as uuidv4 } from 'uuid';
 import { query } from '../db';
 import { AuthRequest } from '../middlewares/auth';
+import { decryptField, encryptField } from '../utils/crypto';
 
 const buildAvatar = (name: string) =>
   name
@@ -32,6 +33,20 @@ const selectClassesBase = `
   FROM classes c
   LEFT JOIN class_teachers ct ON ct.class_id = c.id
 `;
+
+const selectAnnouncementsBase = `
+  SELECT
+    a.*,
+    c.name as "className"
+  FROM announcements a
+  LEFT JOIN classes c ON c.id = a."classId"
+`;
+
+const mapMessageRow = (row: any) => ({
+  ...row,
+  text: decryptField(row.text),
+  image: decryptField(row.image),
+});
 
 export class UserController {
   static async getAll(req: ExpressRequest, res: ExpressResponse) {
@@ -308,7 +323,7 @@ export class StudentController {
 export class AnnouncementController {
   static async getAll(req: ExpressRequest, res: ExpressResponse) {
     try {
-      const result = await query('SELECT * FROM announcements ORDER BY id DESC');
+      const result = await query(`${selectAnnouncementsBase} ORDER BY a.id DESC`);
       res.json({ success: true, data: result.rows });
     } catch (err) {
       res.status(500).json({ success: false, data: null, error: 'Internal server error' });
@@ -317,13 +332,18 @@ export class AnnouncementController {
 
   static async create(req: AuthRequest, res: ExpressResponse) {
     try {
-      const { text, type, author } = req.body;
+      const { text, type, author, classId = null } = req.body;
       const date = new Date().toISOString().split('T')[0];
       const result = await query(
-        'INSERT INTO announcements (text, type, author, date) VALUES ($1, $2, $3, $4) RETURNING *',
-        [text, type, author, date]
+        `
+          INSERT INTO announcements (text, type, author, date, "classId")
+          VALUES ($1, $2, $3, $4, $5)
+          RETURNING *
+        `,
+        [text, type, author, date, classId]
       );
-      res.status(201).json({ success: true, data: result.rows[0] });
+      const created = await query(`${selectAnnouncementsBase} WHERE a.id = $1`, [result.rows[0].id]);
+      res.status(201).json({ success: true, data: created.rows[0] });
     } catch (err) {
       res.status(500).json({ success: false, data: null, error: 'Internal server error' });
     }
@@ -346,7 +366,7 @@ export class MessageController {
             ORDER BY m.id DESC
           `
         );
-        return res.json({ success: true, data: result.rows });
+        return res.json({ success: true, data: result.rows.map(mapMessageRow) });
       }
 
       if (partnerId) {
@@ -360,7 +380,7 @@ export class MessageController {
           `,
           [req.user!.id, partnerId]
         );
-        return res.json({ success: true, data: result.rows });
+        return res.json({ success: true, data: result.rows.map(mapMessageRow) });
       }
 
       const result = await query(
@@ -373,7 +393,7 @@ export class MessageController {
         `,
         [req.user!.id]
       );
-      res.json({ success: true, data: result.rows });
+      res.json({ success: true, data: result.rows.map(mapMessageRow) });
     } catch (err) {
       console.error(err);
       res.status(500).json({ success: false, data: null, error: 'Internal server error' });
@@ -382,9 +402,10 @@ export class MessageController {
 
   static async send(req: AuthRequest, res: ExpressResponse) {
     try {
-      const { toId, text, kind = 'direct' } = req.body as {
+      const { toId, text = '', image = '', kind = 'direct' } = req.body as {
         toId?: string | null;
-        text: string;
+        text?: string;
+        image?: string;
         kind?: 'direct' | 'broadcast';
       };
       const timestamp = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
@@ -394,10 +415,14 @@ export class MessageController {
       }
 
       const result = await query(
-        'INSERT INTO messages ("fromId", "toId", text, timestamp, read, kind) VALUES ($1, $2, $3, $4, false, $5) RETURNING *',
-        [req.user!.id, kind === 'broadcast' ? null : toId ?? null, text, timestamp, kind]
+        `
+          INSERT INTO messages ("fromId", "toId", text, image, timestamp, read, kind)
+          VALUES ($1, $2, $3, $4, $5, false, $6)
+          RETURNING *
+        `,
+        [req.user!.id, kind === 'broadcast' ? null : toId ?? null, encryptField(text), encryptField(image), timestamp, kind]
       );
-      res.status(201).json({ success: true, data: result.rows[0] });
+      res.status(201).json({ success: true, data: mapMessageRow(result.rows[0]) });
     } catch (err) {
       console.error(err);
       res.status(500).json({ success: false, data: null, error: 'Internal server error' });
@@ -595,7 +620,7 @@ export class DashboardController {
         query("SELECT COUNT(*)::int AS total FROM users WHERE role = 'teacher'"),
         query('SELECT COUNT(*)::int AS total FROM students'),
         query("SELECT COUNT(*)::int AS total FROM users WHERE role = 'parent'"),
-        query('SELECT * FROM announcements ORDER BY id DESC LIMIT 5'),
+        query(`${selectAnnouncementsBase} ORDER BY a.id DESC LIMIT 5`),
       ]);
 
       res.json({

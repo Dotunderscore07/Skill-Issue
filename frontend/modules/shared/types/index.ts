@@ -43,6 +43,8 @@ export interface Announcement {
   date: string;
   author: string;
   type: AnnouncementType;
+  classId?: string | null;
+  className?: string | null;
 }
 
 export interface Activity {
@@ -64,6 +66,7 @@ export interface Message {
   fromId: string;
   toId: string | null;
   text: string;
+  image?: string;
   timestamp: string;
   read: boolean;
   kind: MessageKind;

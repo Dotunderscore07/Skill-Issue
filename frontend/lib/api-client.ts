@@ -66,10 +66,10 @@ export class AnnouncementApi {
     return request<Announcement[]>(`${BASE}/announcements`);
   }
 
-  static create(text: string, type: AnnouncementType, author: string) {
+  static create(text: string, type: AnnouncementType, author: string, classId?: string) {
     return request<Announcement>(`${BASE}/announcements`, {
       method: 'POST',
-      body: JSON.stringify({ text, type, author }),
+      body: JSON.stringify({ text, type, author, classId: classId ?? null }),
     });
   }
 }
@@ -130,17 +130,17 @@ export class MessageApi {
     return request<Message[]>(`${BASE}/messages?kind=broadcast`);
   }
 
-  static send(toId: string, text: string) {
+  static send(toId: string, text: string, image?: string) {
     return request<Message>(`${BASE}/messages`, {
       method: 'POST',
-      body: JSON.stringify({ toId, text, kind: 'direct' satisfies MessageKind }),
+      body: JSON.stringify({ toId, text, image: image ?? '', kind: 'direct' satisfies MessageKind }),
     });
   }
 
-  static sendBroadcast(text: string) {
+  static sendBroadcast(text: string, image?: string) {
     return request<Message>(`${BASE}/messages`, {
       method: 'POST',
-      body: JSON.stringify({ text, kind: 'broadcast' satisfies MessageKind }),
+      body: JSON.stringify({ text, image: image ?? '', kind: 'broadcast' satisfies MessageKind }),
     });
   }
 }

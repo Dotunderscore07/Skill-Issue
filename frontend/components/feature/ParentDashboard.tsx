@@ -43,6 +43,9 @@ export function ParentDashboard({ user, activities, announcements }: ParentDashb
   }
 
   const recentActivities = activities.filter((activity) => activity.studentId === selectedChild.id && activity.date === selectedDate);
+  const visibleAnnouncements = announcements.filter(
+    (announcement) => !announcement.classId || announcement.classId === selectedChild.classId
+  );
 
   return (
     <div className="space-y-6">
@@ -116,11 +119,11 @@ export function ParentDashboard({ user, activities, announcements }: ParentDashb
             <h3 className="font-bold">Notice Board</h3>
           </div>
           <div className="p-4 space-y-3">
-            {announcements.map((announcement) => (
+            {visibleAnnouncements.map((announcement) => (
               <div key={announcement.id} className="pb-3 border-b border-gray-50 last:border-0 last:pb-0">
                 <p className="text-sm text-gray-800 font-medium">{announcement.text}</p>
                 <p className="text-xs text-gray-400 mt-1">
-                  {announcement.author} | {announcement.date}
+                  {announcement.author} | {announcement.className ?? 'All Classes'} | {announcement.date}
                 </p>
               </div>
             ))}

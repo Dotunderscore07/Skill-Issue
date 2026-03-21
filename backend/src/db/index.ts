@@ -145,7 +145,7 @@ export const initDb = async () => {
     `);
 
     const salt = await bcrypt.genSalt(10);
-    const defaultPassword = await bcrypt.hash('password123', salt);
+    const defaultPassword = await bcrypt.hash('123', salt);
 
     for (const user of MOCK_USERS) {
       await pool.query(

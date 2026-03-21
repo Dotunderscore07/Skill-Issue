@@ -65,7 +65,7 @@ export function AnnouncementsView({ user, announcements, onAdd }: AnnouncementsV
                   </select>
                 )}
                 {user.role === 'teacher' && selectedClass && (
-                  <span className="text-sm text-gray-500">Target: {selectedClass.name}</span>
+                  <span className="text-sm text-gray-500">Target Class: {selectedClass.name}</span>
                 )}
               </div>
               <Button type="submit">{user.role === 'coordinator' ? 'Post Announcement' : 'Post to Class'}</Button>

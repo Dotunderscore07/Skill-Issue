@@ -16,7 +16,7 @@ export function CoordinatorDashboard({ user }: CoordinatorDashboardProps) {
   const stats = [
     { label: 'Teachers', value: coordinatorSummary?.totalTeachers ?? 0, icon: UserSquare2, accent: 'border-l-sky-500 bg-sky-100 text-sky-600' },
     { label: 'Children', value: coordinatorSummary?.totalChildren ?? 0, icon: Users, accent: 'border-l-emerald-500 bg-emerald-100 text-emerald-600' },
-    { label: 'Parents', value: coordinatorSummary?.totalParents ?? 0, icon: Shapes, accent: 'border-l-amber-500 bg-amber-100 text-amber-600' },
+    { label: 'Parents', value: coordinatorSummary?.totalParents ?? 0, icon: Users, accent: 'border-l-amber-500 bg-amber-100 text-amber-600' },
   ];
 
   return (

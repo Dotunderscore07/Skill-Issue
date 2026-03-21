@@ -50,7 +50,7 @@ export function ClassesView() {
             <p className="text-sm text-gray-500 mt-1">Classes stay linked to teachers through the existing join-table pattern.</p>
           </div>
           {editingClass && (
-            <Button variant="secondary" onClick={resetForm}>New Class</Button>
+            <Button variant="secondary" onClick={resetForm}>Go Back</Button>
           )}
         </div>
         <form onSubmit={handleSubmit} className="space-y-4">

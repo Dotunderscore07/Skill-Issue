@@ -56,7 +56,7 @@ export function TeachersView() {
             <p className="text-sm text-gray-500 mt-1">Teachers stay in the existing shared user system and can be assigned to multiple classes.</p>
           </div>
           {editingId && (
-            <Button variant="secondary" onClick={startCreate}>New Teacher</Button>
+            <Button variant="secondary" onClick={startCreate}>Go Back</Button>
           )}
         </div>
         <form onSubmit={handleSubmit} className="space-y-4">

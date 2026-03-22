@@ -2,8 +2,10 @@
 
 import React, { useState } from 'react';
 import { UserPlus, ArrowLeft } from 'lucide-react';
+import { useAppContext } from '../../modules/shared/context/AppContext';
 
 export function RegisterScreen({ onToggleLogin }: { onToggleLogin: () => void }) {
+  const { login } = useAppContext();
   const [name, setName] = useState('');
   const [phone, setPhone] = useState('');
   const [password, setPassword] = useState('');
@@ -31,8 +33,25 @@ export function RegisterScreen({ onToggleLogin }: { onToggleLogin: () => void })
       const data = await res.json();
       
       if (data.success) {
-        setSuccess('Registration successful! You can now log in.');
-        setTimeout(onToggleLogin, 2000);
+        setSuccess('Registration successful! Logging you in...');
+        try {
+          const loginRes = await fetch('http://localhost:4000/api/auth/login', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            credentials: 'include',
+            body: JSON.stringify({ phone, password })
+          });
+          const loginData = await loginRes.json();
+          if (loginData.success && loginData.data) {
+            login(loginData.data.user, loginData.data.token);
+          } else {
+            setError('Auto-login failed. Please log in manually.');
+            setTimeout(onToggleLogin, 2000);
+          }
+        } catch (err) {
+          setError('Auto-login failed. Please log in manually.');
+          setTimeout(onToggleLogin, 2000);
+        }
       } else {
         setError(data.error || 'Registration failed');
       }

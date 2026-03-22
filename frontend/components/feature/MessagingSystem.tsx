@@ -50,7 +50,9 @@ export function MessagingSystem({ user, messages, onSend }: MessagingSystemProps
     });
 
     const historicalPartners = allUsers.filter((entry) => historicalPartnerIds.has(entry.id));
-    setActiveThreads(historicalPartners);
+    const nonHistoricalPartners = availableToSearch.filter((entry) => !historicalPartnerIds.has(entry.id));
+    setActiveThreads([...historicalPartners, ...nonHistoricalPartners]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [messages, allUsers, user.id]);
 
   const searchResults = searchQuery.trim()
@@ -218,7 +220,7 @@ export function MessagingSystem({ user, messages, onSend }: MessagingSystemProps
                 <label className="inline-flex items-center gap-2 text-sm text-gray-500 cursor-pointer">
                   <ImagePlus size={18} />
                   <span>Add Photo</span>
-                  <input type="file" accept="image/*" className="hidden" onChange={(e) => handleImageChange(e.target.files?.[0] ?? null)} />
+                  <input type="file" accept="image/png, image/jpeg, image/jpg, image/webp" className="hidden" onChange={(e) => handleImageChange(e.target.files?.[0] ?? null)} />
                 </label>
                 <Button type="submit" className="min-w-24">
                   <Send size={18} /> Send

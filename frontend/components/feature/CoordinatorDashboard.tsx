@@ -1,17 +1,49 @@
 'use client';
 
 import React from 'react';
-import { Megaphone, Shapes, Users, UserSquare2 } from 'lucide-react';
-import { Card, Badge } from '../ui';
+import { Clock3, Megaphone, Shapes, Users, UserSquare2 } from 'lucide-react';
+import { Card, Badge, Button } from '../ui';
 import { Announcement, User } from '../../modules/shared/types';
 import { useAppContext } from '../../modules/shared/context/AppContext';
+
+const getDayOfWeek = (date: string) =>
+  new Date(`${date}T00:00:00`).toLocaleDateString('en-US', { weekday: 'long' }).toLowerCase() as
+    | 'sunday'
+    | 'monday'
+    | 'tuesday'
+    | 'wednesday'
+    | 'thursday'
+    | 'friday'
+    | 'saturday';
 
 interface CoordinatorDashboardProps {
   user: User;
 }
 
 export function CoordinatorDashboard({ user }: CoordinatorDashboardProps) {
-  const { coordinatorSummary } = useAppContext();
+  const { coordinatorSummary, routines, classes: allClasses, allUsers, selectedClass, setSelectedClass, selectedDate } = useAppContext();
+
+  React.useEffect(() => {
+    if (allClasses.length === 0) {
+      return;
+    }
+
+    if (!selectedClass || !allClasses.some((entry) => entry.id === selectedClass.id)) {
+      setSelectedClass(allClasses[0]);
+    }
+  }, [allClasses, selectedClass, setSelectedClass]);
+
+  const todayDay = getDayOfWeek(selectedDate);
+  const todaysRoutines = routines
+    .filter((routine) => routine.classId === selectedClass?.id && routine.dayOfWeek === todayDay)
+    .sort((a, b) => a.startTime.localeCompare(b.startTime));
+
+  const formatTime = (value: string) =>
+    new Date(`2000-01-01T${value}:00`).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+
+  const formattedDate = new Date(`${selectedDate}T00:00:00`).toLocaleDateString('en-US', { day: 'numeric', month: 'long', year: 'numeric' });
+
+  const teachers = allUsers.filter((entry) => entry.role === 'teacher');
 
   const stats = [
     { label: 'Teachers', value: coordinatorSummary?.totalTeachers ?? 0, icon: UserSquare2, accent: 'border-l-sky-500 bg-sky-100 text-sky-600' },
@@ -41,28 +73,76 @@ export function CoordinatorDashboard({ user }: CoordinatorDashboardProps) {
         ))}
       </div>
 
-      <Card>
-        <div className="p-4 border-b border-gray-100 flex items-center gap-2">
-          <Megaphone size={18} className="text-indigo-600" />
-          <h3 className="font-bold text-lg">Recent Announcements</h3>
-        </div>
-        <div className="p-4 space-y-4">
-          {(coordinatorSummary?.announcements ?? []).map((announcement: Announcement) => (
-            <div key={announcement.id} className="bg-gray-50 border border-gray-100 rounded-xl p-4">
-              <div className="flex justify-between items-start gap-3 mb-2">
-                <div className="flex items-center gap-2">
-                  <Badge color={announcement.type === 'urgent' ? 'red' : announcement.type === 'event' ? 'green' : 'blue'}>
-                    {announcement.type}
-                  </Badge>
-                  <span className="text-xs text-gray-500">{announcement.author}</span>
-                </div>
-                <span className="text-xs text-gray-400">{announcement.date}</span>
-              </div>
-              <p className="text-sm text-gray-800">{announcement.text}</p>
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <Card className="flex flex-col">
+          <div className="p-4 border-b border-gray-100 flex items-center justify-between gap-4">
+            <div className="flex items-center gap-2">
+              <Clock3 size={18} className="text-sky-600" />
+              <h3 className="font-bold text-lg">
+                Today&apos;s Routine <span className="text-gray-500 text-sm font-normal ml-2">{formattedDate}</span>
+              </h3>
             </div>
-          ))}
-        </div>
-      </Card>
+            {allClasses.length > 0 && (
+              <select
+                className="bg-gray-50 border border-gray-200 text-gray-700 px-2 py-1 rounded-md text-sm focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 max-w-[140px] md:max-w-[200px]"
+                value={selectedClass?.id || ''}
+                onChange={(e) => {
+                  const targetClass = allClasses.find((entry) => entry.id === e.target.value);
+                  if (targetClass) setSelectedClass(targetClass);
+                }}
+              >
+                {allClasses.map((entry) => (
+                  <option key={entry.id} value={entry.id}>{entry.name}</option>
+                ))}
+              </select>
+            )}
+          </div>
+          <div className="p-4 space-y-4">
+            {todaysRoutines.length === 0 ? (
+              <div className="rounded-2xl border border-dashed border-gray-200 bg-gray-50 px-6 py-10 text-center">
+                <p className="font-semibold text-gray-700">No periods scheduled for today.</p>
+                <p className="mt-1 text-sm text-gray-500">Open the routines tab to view the full weekly routine.</p>
+              </div>
+            ) : (
+              todaysRoutines.map((routine) => (
+                <div key={routine.id} className="grid grid-cols-[100px_minmax(0,1fr)] gap-4">
+                  <div className="flex flex-col justify-center text-sm font-semibold text-gray-700">
+                    <span>{formatTime(routine.startTime)}</span>
+                    <span className="text-gray-400">{formatTime(routine.endTime)}</span>
+                  </div>
+                  <div className="rounded-2xl border border-sky-200 bg-sky-100/80 px-5 py-4 shadow-sm">
+                    <p className="text-lg font-bold text-gray-900">{routine.title}</p>
+                    <p className="mt-2 text-sm text-gray-700">{routine.teacherName ?? teachers.find((entry) => entry.id === routine.teacherId)?.name ?? 'Assigned teacher'}</p>
+                  </div>
+                </div>
+              ))
+            )}
+          </div>
+        </Card>
+
+        <Card>
+          <div className="p-4 border-b border-gray-100 flex items-center gap-2">
+            <Megaphone size={18} className="text-indigo-600" />
+            <h3 className="font-bold text-lg">Recent Announcements</h3>
+          </div>
+          <div className="p-4 space-y-4">
+            {(coordinatorSummary?.announcements ?? []).map((announcement: Announcement) => (
+              <div key={announcement.id} className="bg-gray-50 border border-gray-100 rounded-xl p-4">
+                <div className="flex justify-between items-start gap-3 mb-2">
+                  <div className="flex items-center gap-2">
+                    <Badge color={announcement.type === 'urgent' ? 'red' : announcement.type === 'event' ? 'green' : 'blue'}>
+                      {announcement.type}
+                    </Badge>
+                    <span className="text-xs text-gray-500">{announcement.author}</span>
+                  </div>
+                  <span className="text-xs text-gray-400">{announcement.date}</span>
+                </div>
+                <p className="text-sm text-gray-800">{announcement.text}</p>
+              </div>
+            ))}
+          </div>
+        </Card>
+      </div>
     </div>
   );
 }

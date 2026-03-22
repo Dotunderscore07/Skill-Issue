@@ -45,13 +45,19 @@ export function TeacherDashboard({ user, attendance, announcements, onNavigate }
   const availableClasses = teacherClasses.length > 0 ? teacherClasses : allClasses;
   const classStudents = allStudents.filter((student) => student.classId === selectedClass?.id);
   const totalStudents = classStudents.length;
+
+  const parentIds = new Set(classStudents.map((s) => s.parentId).filter(Boolean));
+  const parentsCount = parentIds.size;
+
   const presentCount = attendance.filter(
     (entry) => entry.date === selectedDate && entry.status === 'present' && classStudents.some((student) => student.id === entry.studentId)
   ).length;
   const visibleAnnouncements = announcements.filter(
     (announcement) => !announcement.classId || announcement.classId === selectedClass?.id
   );
+  
   const teachers = allUsers.filter((entry) => entry.role === 'teacher');
+  const classTeachersCount = teachers.filter((t) => (t.classIds ?? []).includes(selectedClass?.id ?? '')).length;
 
   React.useEffect(() => {
     if (availableClasses.length === 0) {
@@ -70,6 +76,8 @@ export function TeacherDashboard({ user, attendance, announcements, onNavigate }
 
   const formatTime = (value: string) =>
     new Date(`2000-01-01T${value}:00`).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+
+  const formattedDate = new Date(`${selectedDate}T00:00:00`).toLocaleDateString('en-US', { day: 'numeric', month: 'long', year: 'numeric' });
 
   return (
     <div className="space-y-6">
@@ -120,16 +128,16 @@ export function TeacherDashboard({ user, attendance, announcements, onNavigate }
           </div>
           <div>
             <p className="text-sm text-gray-500 font-medium">Parents</p>
-            <p className="text-2xl font-bold">{totalStudents}</p>
+            <p className="text-2xl font-bold">{parentsCount}</p>
           </div>
         </Card>
         <Card className="p-5 flex items-center gap-4 border-l-4 border-l-purple-500">
           <div className="bg-purple-100 p-3 rounded-full">
-            <Calendar className="text-purple-600" />
+            <Users className="text-purple-600" />
           </div>
           <div>
-            <p className="text-sm text-gray-500 font-medium">Announcements</p>
-            <p className="text-2xl font-bold">{announcements.length}</p>
+            <p className="text-sm text-gray-500 font-medium">Teachers</p>
+            <p className="text-2xl font-bold">{classTeachersCount}</p>
           </div>
         </Card>
       </div>
@@ -138,7 +146,9 @@ export function TeacherDashboard({ user, attendance, announcements, onNavigate }
         <Card className="flex flex-col">
           <div className="p-4 border-b border-gray-100 flex items-center gap-2">
             <Clock3 size={18} className="text-sky-600" />
-            <h3 className="font-bold text-lg">Today&apos;s Routine</h3>
+            <h3 className="font-bold text-lg">
+              Today&apos;s Routine <span className="text-gray-500 text-sm font-normal ml-2">{formattedDate}</span>
+            </h3>
           </div>
           <div className="p-4 space-y-4">
             {todaysRoutines.length === 0 ? (

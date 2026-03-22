@@ -21,7 +21,7 @@ export function ActivitiesView({
   onEditActivity,
   onDeleteActivity,
 }: ActivitiesViewProps) {
-  const { students, selectedChild, selectedClass, selectedDate, setSelectedDate, authLoading: loading } = useAppContext();
+  const { students, selectedChild, selectedClass, classes, setSelectedClass, selectedDate, setSelectedDate, authLoading: loading } = useAppContext();
 
   if (loading) return <div className="p-8 text-center text-gray-500">Loading activities...</div>;
 
@@ -30,6 +30,10 @@ export function ActivitiesView({
     const dateActivities = activities.filter(a => a.date === selectedDate);
     return (
       <TeacherActivityFeed
+        user={user}
+        classes={classes}
+        selectedClass={selectedClass}
+        setSelectedClass={setSelectedClass}
         students={classStudents}
         activities={dateActivities}
         selectedClassName={selectedClass?.name || ''}
@@ -47,6 +51,10 @@ export function ActivitiesView({
 
 // ─── Teacher: Post & Edit Activity ────────────────────────────────────────────────
 interface TeacherActivityFeedProps {
+  user: User;
+  classes: any[];
+  selectedClass: any;
+  setSelectedClass: (c: any) => void;
   students: any[];
   activities: Activity[];
   selectedClassName: string;
@@ -57,7 +65,7 @@ interface TeacherActivityFeedProps {
   onDelete: (id: number) => Promise<void>;
 }
 
-function TeacherActivityFeed({ students, activities, selectedClassName, selectedDate, onSetDate, onAdd, onEdit, onDelete }: TeacherActivityFeedProps) {
+function TeacherActivityFeed({ user, classes, selectedClass, setSelectedClass, students, activities, selectedClassName, selectedDate, onSetDate, onAdd, onEdit, onDelete }: TeacherActivityFeedProps) {
   const [selectedStudent, setSelectedStudent] = useState('');
 
   useEffect(() => {
@@ -108,7 +116,18 @@ function TeacherActivityFeed({ students, activities, selectedClassName, selected
       <Card className="p-6">
         <div className="flex justify-between items-center mb-6">
           <h2 className="text-xl font-bold text-gray-800">New Entry</h2>
-          {selectedClassName && <Badge color="indigo">{selectedClassName}</Badge>}
+          <select
+            className="bg-indigo-50 border border-indigo-200 text-indigo-700 px-3 py-1 rounded-full text-sm font-medium focus:outline-none focus:border-indigo-500"
+            value={selectedClass?.id || ''}
+            onChange={(e) => {
+              const targetClass = classes.find((c) => c.id === e.target.value);
+              if (targetClass) setSelectedClass(targetClass);
+            }}
+          >
+            {classes.filter(c => (user.classIds ?? []).includes(c.id)).map((c) => (
+              <option key={c.id} value={c.id}>{c.name}</option>
+            ))}
+          </select>
         </div>
         {selectedDate !== new Date().toISOString().split('T')[0] ? (
           <div className="p-4 bg-amber-50 border border-amber-100 rounded-lg text-amber-700 text-sm italic">

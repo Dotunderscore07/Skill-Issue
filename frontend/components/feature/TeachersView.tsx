@@ -6,7 +6,7 @@ import { Button, Card } from '../ui';
 import { useAppContext } from '../../modules/shared/context/AppContext';
 
 export function TeachersView() {
-  const { allUsers, classes, createTeacher, updateTeacher } = useAppContext();
+  const { allUsers, classes, createTeacher, updateTeacher, deleteTeacher } = useAppContext();
   const teachers = allUsers.filter((user) => user.role === 'teacher');
   const [editingId, setEditingId] = useState<string | null>(null);
   const [form, setForm] = useState({ name: '', phone: '', password: '', classIds: [] as string[] });
@@ -55,15 +55,21 @@ export function TeachersView() {
             <h3 className="text-lg font-bold text-gray-900">{editingId ? 'Edit Teacher' : 'Create Teacher Account'}</h3>
             <p className="text-sm text-gray-500 mt-1">Teachers stay in the existing shared user system and can be assigned to multiple classes.</p>
           </div>
-          {editingId && (
-            <Button variant="secondary" onClick={startCreate}>Go Back</Button>
-          )}
         </div>
         <form onSubmit={handleSubmit} className="space-y-4">
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <input value={form.name} onChange={(e) => setForm((current) => ({ ...current, name: e.target.value }))} placeholder="Teacher name" className="px-4 py-2 border border-gray-200 rounded-xl" />
-            <input value={form.phone} onChange={(e) => setForm((current) => ({ ...current, phone: e.target.value }))} placeholder="Phone number" className="px-4 py-2 border border-gray-200 rounded-xl" />
-            <input value={form.password} onChange={(e) => setForm((current) => ({ ...current, password: e.target.value }))} placeholder={editingId ? 'New password (optional)' : 'Password'} type="password" className="px-4 py-2 border border-gray-200 rounded-xl" />
+            <div className="space-y-2">
+              <label className="text-sm font-medium text-gray-700">Teacher Name <span className="text-red-500">*</span></label>
+              <input required value={form.name} onChange={(e) => setForm((current) => ({ ...current, name: e.target.value }))} placeholder="Enter full name" className="w-full px-4 py-2 border border-gray-200 rounded-xl focus:ring-2 focus:ring-indigo-500 outline-none" />
+            </div>
+            <div className="space-y-2">
+              <label className="text-sm font-medium text-gray-700">Phone Number <span className="text-red-500">*</span></label>
+              <input required value={form.phone} onChange={(e) => setForm((current) => ({ ...current, phone: e.target.value }))} placeholder="Enter phone number" className="w-full px-4 py-2 border border-gray-200 rounded-xl focus:ring-2 focus:ring-indigo-500 outline-none" />
+            </div>
+            <div className="space-y-2">
+              <label className="text-sm font-medium text-gray-700">Password {!editingId && <span className="text-red-500">*</span>}</label>
+              <input required={!editingId} value={form.password} onChange={(e) => setForm((current) => ({ ...current, password: e.target.value }))} placeholder={editingId ? 'Leave blank to keep current' : 'Enter a password'} type="password" className="w-full px-4 py-2 border border-gray-200 rounded-xl focus:ring-2 focus:ring-indigo-500 outline-none" />
+            </div>
           </div>
           <div>
             <p className="text-sm font-medium text-gray-700 mb-2">Assigned classes</p>
@@ -76,10 +82,26 @@ export function TeachersView() {
               ))}
             </div>
           </div>
-          <Button type="submit">
-            <Plus size={18} />
-            {editingId ? 'Save Teacher' : 'Create Teacher'}
-          </Button>
+          <div className="flex justify-end gap-3 mt-4">
+            {editingId && (
+              <>
+                <Button type="button" variant="danger" onClick={async () => {
+                  if (confirm('Are you sure you want to delete this teacher? This will delete their class assignments and assigned routines!')) {
+                    await deleteTeacher(editingId);
+                    startCreate();
+                  }
+                }}>
+                  Delete Teacher
+                </Button>
+                <Button type="button" variant="secondary" onClick={startCreate}>
+                  Go Back
+                </Button>
+              </>
+            )}
+            <Button type="submit">
+              {editingId ? 'Save Teacher' : 'Create Teacher'}
+            </Button>
+          </div>
         </form>
       </Card>
 

@@ -27,13 +27,16 @@ router.post('/auth/logout', AuthController.logout);
 // Users
 router.get('/users', auth, UserController.getAll);
 router.get('/users/:id', auth, UserController.getById);
+router.put('/users/:id', auth, UserController.updateProfile);
 router.post('/users/teachers', auth, authorizeRole('coordinator'), UserController.createTeacher);
 router.put('/users/teachers/:id', auth, authorizeRole('coordinator'), UserController.updateTeacher);
+router.delete('/users/teachers/:id', auth, authorizeRole('coordinator'), UserController.deleteTeacher);
 
 // Classes
 router.get('/classes', auth, ClassController.getAll);
 router.post('/classes', auth, authorizeRole('coordinator'), ClassController.create);
 router.put('/classes/:id', auth, authorizeRole('coordinator'), ClassController.update);
+router.delete('/classes/:id', auth, authorizeRole('coordinator'), ClassController.delete);
 
 // Routines
 router.get('/routines', auth, authorizeRole('teacher', 'coordinator', 'parent', 'admin'), RoutineController.getAll);
@@ -46,10 +49,13 @@ router.get('/students', auth, StudentController.getAll);
 router.post('/students', auth, authorizeRole('coordinator'), StudentController.create);
 router.put('/students/:studentId', auth, authorizeRole('coordinator'), StudentController.update);
 router.put('/students/:studentId/link', auth, authorizeRole('teacher', 'coordinator', 'admin'), StudentController.linkParent);
+router.delete('/students/:studentId', auth, authorizeRole('coordinator'), StudentController.delete);
 
 // Announcements
 router.get('/announcements', auth, AnnouncementController.getAll);
 router.post('/announcements', auth, authorizeRole('teacher', 'coordinator', 'admin'), AnnouncementController.create);
+router.put('/announcements/:id', auth, authorizeRole('teacher', 'coordinator', 'admin'), AnnouncementController.update);
+router.delete('/announcements/:id', auth, authorizeRole('teacher', 'coordinator', 'admin'), AnnouncementController.delete);
 
 // Activities
 router.get('/activities', auth, ActivityController.getAll);

@@ -55,7 +55,6 @@ export function Sidebar({ user, view, onViewChange, onLogout }: SidebarProps) {
           { id: 'classes' as ViewType, icon: Shapes, label: 'Classes' },
           { id: 'routines' as ViewType, icon: Clock3, label: 'Routines' },
           { id: 'announcements' as ViewType, icon: Bell, label: 'Announcements' },
-          { id: 'messages' as ViewType, icon: MessageCircle, label: 'Messages' },
         ]
       : [
           { id: 'dashboard' as ViewType, icon: Home, label: 'Dashboard' },

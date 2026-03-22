@@ -53,34 +53,45 @@ export function AttendanceView({ user, attendance, onUpdateAttendance }: Attenda
     };
 
     return (
-      <div className="max-w-3xl mx-auto space-y-8">
+      <div className="space-y-6">
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-          <h2 className="text-2xl font-bold text-gray-900">Attendance History</h2>
-          <input 
-            type="month" 
+          <div>
+            <h2 className="text-2xl font-bold text-gray-900">Attendance History</h2>
+            <p className="text-gray-500 text-sm">{myStudent.name}&apos;s attendance record</p>
+          </div>
+          <input
+            type="month"
             className="p-2 border rounded-lg bg-white shadow-sm focus:ring-2 focus:ring-indigo-500 outline-none"
             value={selectedDate.substring(0, 7)}
             onChange={(e) => setSelectedDate(`${e.target.value}-01`)}
           />
         </div>
 
-        {/* Summary Widget */}
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-          <Card className="p-4 bg-indigo-50 border-indigo-100">
-            <p className="text-xs font-bold text-indigo-600 uppercase tracking-wider mb-1">Total Days</p>
-            <p className="text-2xl font-black text-indigo-900">{stats.total}</p>
+        {/* Summary Stats */}
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+          <Card className="p-4 flex items-center gap-3 border-l-4 border-l-indigo-500">
+            <div>
+              <p className="text-xs font-bold text-gray-500 uppercase tracking-wider">Total Days</p>
+              <p className="text-3xl font-black text-indigo-900">{stats.total}</p>
+            </div>
           </Card>
-          <Card className="p-4 bg-green-50 border-green-100">
-            <p className="text-xs font-bold text-green-600 uppercase tracking-wider mb-1">Present</p>
-            <p className="text-2xl font-black text-green-900">{stats.present}</p>
+          <Card className="p-4 flex items-center gap-3 border-l-4 border-l-green-500">
+            <div>
+              <p className="text-xs font-bold text-gray-500 uppercase tracking-wider">Present</p>
+              <p className="text-3xl font-black text-green-800">{stats.present}</p>
+            </div>
           </Card>
-          <Card className="p-4 bg-yellow-50 border-yellow-100">
-            <p className="text-xs font-bold text-yellow-600 uppercase tracking-wider mb-1">Late</p>
-            <p className="text-2xl font-black text-yellow-900">{stats.late}</p>
+          <Card className="p-4 flex items-center gap-3 border-l-4 border-l-yellow-400">
+            <div>
+              <p className="text-xs font-bold text-gray-500 uppercase tracking-wider">Late</p>
+              <p className="text-3xl font-black text-yellow-700">{stats.late}</p>
+            </div>
           </Card>
-          <Card className="p-4 bg-red-50 border-red-100">
-            <p className="text-xs font-bold text-red-600 uppercase tracking-wider mb-1">Absent</p>
-            <p className="text-2xl font-black text-red-900">{stats.absent}</p>
+          <Card className="p-4 flex items-center gap-3 border-l-4 border-l-red-500">
+            <div>
+              <p className="text-xs font-bold text-gray-500 uppercase tracking-wider">Absent</p>
+              <p className="text-3xl font-black text-red-800">{stats.absent}</p>
+            </div>
           </Card>
         </div>
 
@@ -162,7 +173,11 @@ export function AttendanceView({ user, attendance, onUpdateAttendance }: Attenda
               return (
                 <tr key={student.id} className="hover:bg-gray-50/50">
                   <td className="p-4 flex items-center gap-3">
-                    <span className="text-xl">👶</span>
+                    {student.photo ? (
+                      <img src={student.photo} alt={student.name} className="w-8 h-8 rounded-full object-cover" />
+                    ) : (
+                      <span className="text-xl">👶</span>
+                    )}
                     <span className="font-medium text-gray-900">{student.name}</span>
                   </td>
                   <td className="p-4">

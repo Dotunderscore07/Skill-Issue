@@ -15,7 +15,7 @@ const emptyForm = {
 };
 
 export function ChildrenView() {
-  const { students, classes, allUsers, createStudent, updateStudent } = useAppContext();
+  const { students, classes, allUsers, createStudent, updateStudent, deleteStudent } = useAppContext();
   const parents = allUsers.filter((user) => user.role === 'parent');
   const [editingStudent, setEditingStudent] = useState<Student | null>(null);
   const [form, setForm] = useState(emptyForm);
@@ -73,37 +73,63 @@ export function ChildrenView() {
             <h3 className="text-lg font-bold text-gray-900">{editingStudent ? 'Edit Child Profile' : 'Create Child Profile'}</h3>
             <p className="text-sm text-gray-500 mt-1">Assign each child to an existing parent account and class.</p>
           </div>
-          {editingStudent && (
-            <Button variant="secondary" onClick={resetForm}>Go Back</Button>
-          )}
         </div>
         <form onSubmit={handleSubmit} className="space-y-4">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <input value={form.name} onChange={(e) => setForm((current) => ({ ...current, name: e.target.value }))} placeholder="Child name" className="px-4 py-2 border border-gray-200 rounded-xl" />
-            <input value={form.dob} onChange={(e) => setForm((current) => ({ ...current, dob: e.target.value }))} type="date" className="px-4 py-2 border border-gray-200 rounded-xl" />
-            <select value={form.parentId} onChange={(e) => setForm((current) => ({ ...current, parentId: e.target.value }))} className="px-4 py-2 border border-gray-200 rounded-xl bg-white">
-              <option value="">Assign parent</option>
-              {parents.map((parent) => (
-                <option key={parent.id} value={parent.id}>{parent.name}</option>
-              ))}
-            </select>
-            <select value={form.classId} onChange={(e) => setForm((current) => ({ ...current, classId: e.target.value }))} className="px-4 py-2 border border-gray-200 rounded-xl bg-white">
-              <option value="">Assign class</option>
-              {classes.map((entry) => (
-                <option key={entry.id} value={entry.id}>{entry.name}</option>
-              ))}
-            </select>
+            <div className="space-y-2">
+              <label className="text-sm font-medium text-gray-700">Child Name <span className="text-red-500">*</span></label>
+              <input required value={form.name} onChange={(e) => setForm((current) => ({ ...current, name: e.target.value }))} placeholder="Enter child's full name" className="w-full px-4 py-2 border border-gray-200 rounded-xl focus:ring-2 focus:ring-indigo-500 outline-none" />
+            </div>
+            <div className="space-y-2">
+              <label className="text-sm font-medium text-gray-700">Date of Birth <span className="text-red-500">*</span></label>
+              <input required value={form.dob} onChange={(e) => setForm((current) => ({ ...current, dob: e.target.value }))} type="date" className="w-full px-4 py-2 border border-gray-200 rounded-xl focus:ring-2 focus:ring-indigo-500 outline-none" />
+            </div>
+            <div className="space-y-2">
+              <label className="text-sm font-medium text-gray-700">Parent (Optional)</label>
+              <select value={form.parentId} onChange={(e) => setForm((current) => ({ ...current, parentId: e.target.value }))} className="w-full px-4 py-2 border border-gray-200 rounded-xl bg-white focus:ring-2 focus:ring-indigo-500 outline-none cursor-pointer">
+                <option value="">Select a parent</option>
+                {parents.map((parent) => (
+                  <option key={parent.id} value={parent.id}>{parent.name}</option>
+                ))}
+              </select>
+            </div>
+            <div className="space-y-2">
+              <label className="text-sm font-medium text-gray-700">Class <span className="text-red-500">*</span></label>
+              <select required value={form.classId} onChange={(e) => setForm((current) => ({ ...current, classId: e.target.value }))} className="w-full px-4 py-2 border border-gray-200 rounded-xl bg-white focus:ring-2 focus:ring-indigo-500 outline-none cursor-pointer">
+                <option value="">Select a class</option>
+                {classes.map((entry) => (
+                  <option key={entry.id} value={entry.id}>{entry.name}</option>
+                ))}
+              </select>
+            </div>
           </div>
           <div className="space-y-3">
-            <input type="file" accept="image/*" onChange={(e) => handlePhotoChange(e.target.files?.[0] ?? null)} className="block text-sm text-gray-500" />
+            <label className="text-sm font-medium text-gray-700">Profile Photo</label>
+            <input type="file" accept="image/png, image/jpeg, image/jpg, image/webp" onChange={(e) => handlePhotoChange(e.target.files?.[0] ?? null)} className="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-indigo-50 file:text-indigo-700 hover:file:bg-indigo-100" />
             {form.photo && (
               <img src={form.photo} alt="Child preview" className="w-20 h-20 rounded-2xl object-cover border border-gray-200" />
             )}
           </div>
-          <Button type="submit" disabled={!form.name || !form.dob || !form.classId}>
-            <Plus size={18} />
-            {editingStudent ? 'Save Child' : 'Create Child'}
-          </Button>
+          <div className="flex justify-end gap-3 mt-4">
+            {editingStudent && (
+              <>
+                <Button type="button" variant="danger" onClick={async () => {
+                  if (confirm('Are you sure you want to delete this child? This will also remove their activities and attendance records!')) {
+                    await deleteStudent(editingStudent.id);
+                    resetForm();
+                  }
+                }}>
+                  Delete Child
+                </Button>
+                <Button type="button" variant="secondary" onClick={resetForm}>
+                  Go Back
+                </Button>
+              </>
+            )}
+            <Button type="submit" disabled={!form.name || !form.dob || !form.classId}>
+              {editingStudent ? 'Save Child' : 'Create Child'}
+            </Button>
+          </div>
         </form>
       </Card>
 

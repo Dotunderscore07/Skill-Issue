@@ -4,6 +4,7 @@ import { v4 as uuidv4 } from 'uuid';
 import { query } from '../db';
 import { AuthRequest } from '../middlewares/auth';
 import { decryptField, encryptField } from '../utils/crypto';
+import { DayOfWeek } from '../interfaces';
 
 const buildAvatar = (name: string) =>
   name
@@ -41,6 +42,104 @@ const selectAnnouncementsBase = `
   FROM announcements a
   LEFT JOIN classes c ON c.id = a."classId"
 `;
+
+const selectRoutinesBase = `
+  SELECT
+    r.id,
+    r."classId",
+    c.name as "className",
+    r."teacherId",
+    u.name as "teacherName",
+    r."dayOfWeek",
+    r."startTime",
+    r."endTime",
+    r.title
+  FROM routines r
+  INNER JOIN classes c ON c.id = r."classId"
+  INNER JOIN users u ON u.id = r."teacherId"
+`;
+
+const DAY_ORDER: DayOfWeek[] = ['saturday', 'sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday'];
+
+const isValidTime = (value: string) => /^\d{2}:\d{2}$/.test(value);
+
+const buildRoutineError = (res: ExpressResponse, error: string, status = 400) =>
+  res.status(status).json({ success: false, data: null, error });
+
+const validateRoutinePayload = async ({
+  classId,
+  teacherId,
+  dayOfWeek,
+  startTime,
+  endTime,
+  title,
+  routineId,
+}: {
+  classId: string;
+  teacherId: string;
+  dayOfWeek: DayOfWeek;
+  startTime: string;
+  endTime: string;
+  title: string;
+  routineId?: number;
+}) => {
+  if (!DAY_ORDER.includes(dayOfWeek)) {
+    return 'Invalid day selected.';
+  }
+
+  if (!title.trim()) {
+    return 'Routine title is required.';
+  }
+
+  if (!isValidTime(startTime) || !isValidTime(endTime)) {
+    return 'Start time and end time must be in HH:MM format.';
+  }
+
+  if (startTime >= endTime) {
+    return 'End time must be later than start time.';
+  }
+
+  const teacherAssignment = await query(
+    `
+      SELECT 1
+      FROM class_teachers
+      WHERE class_id = $1 AND teacher_id = $2
+      LIMIT 1
+    `,
+    [classId, teacherId]
+  );
+
+  if (teacherAssignment.rows.length === 0) {
+    return 'Only teachers assigned to this class can be added to its routine.';
+  }
+
+  const overlapParams: (string | number)[] = [classId, dayOfWeek, startTime, endTime];
+  let overlapWhere = '';
+  if (routineId) {
+    overlapParams.push(routineId);
+    overlapWhere = `AND r.id <> $5`;
+  }
+
+  const overlapping = await query(
+    `
+      SELECT r.id
+      FROM routines r
+      WHERE r."classId" = $1
+        AND r."dayOfWeek" = $2
+        AND r."startTime" < $4
+        AND r."endTime" > $3
+        ${overlapWhere}
+      LIMIT 1
+    `,
+    overlapParams
+  );
+
+  if (overlapping.rows.length > 0) {
+    return 'This class already has a routine during the selected time.';
+  }
+
+  return null;
+};
 
 const mapMessageRow = (row: any) => ({
   ...row,
@@ -220,6 +319,15 @@ export class StudentController {
         classId: string;
       };
 
+      if (!name?.trim() || !dob?.trim() || !classId?.trim()) {
+        return res.status(400).json({ success: false, data: null, error: 'Name, date of birth, and class are required.' });
+      }
+
+      const classExists = await query('SELECT 1 FROM classes WHERE id = $1 LIMIT 1', [classId]);
+      if (classExists.rows.length === 0) {
+        return res.status(400).json({ success: false, data: null, error: 'Selected class does not exist.' });
+      }
+
       const id = uuidv4();
 
       await query(
@@ -264,6 +372,15 @@ export class StudentController {
         parentId?: string;
         classId: string;
       };
+
+      if (!name?.trim() || !dob?.trim() || !classId?.trim()) {
+        return res.status(400).json({ success: false, data: null, error: 'Name, date of birth, and class are required.' });
+      }
+
+      const classExists = await query('SELECT 1 FROM classes WHERE id = $1 LIMIT 1', [classId]);
+      if (classExists.rows.length === 0) {
+        return res.status(400).json({ success: false, data: null, error: 'Selected class does not exist.' });
+      }
 
       await query(
         'UPDATE students SET name = $1, dob = $2, photo = $3, "classId" = $4 WHERE id = $5',
@@ -606,6 +723,152 @@ export class ClassController {
         [id]
       );
       res.json({ success: true, data: updated.rows[0] });
+    } catch (err) {
+      console.error(err);
+      res.status(500).json({ success: false, data: null, error: 'Internal server error' });
+    }
+  }
+}
+
+export class RoutineController {
+  static async getAll(req: AuthRequest, res: ExpressResponse) {
+    try {
+      const params: string[] = [];
+      const conditions: string[] = [];
+      const classId = req.query.classId as string | undefined;
+      const teacherId = req.query.teacherId as string | undefined;
+      const dayOfWeek = req.query.dayOfWeek as DayOfWeek | undefined;
+
+      if (classId) {
+        params.push(classId);
+        conditions.push(`r."classId" = $${params.length}`);
+      }
+
+      if (teacherId) {
+        params.push(teacherId);
+        conditions.push(`r."teacherId" = $${params.length}`);
+      }
+
+      if (dayOfWeek) {
+        params.push(dayOfWeek);
+        conditions.push(`r."dayOfWeek" = $${params.length}`);
+      }
+
+      if (req.user?.role === 'teacher') {
+        params.push(req.user.id);
+        conditions.push(`r."classId" IN (SELECT class_id FROM class_teachers WHERE teacher_id = $${params.length})`);
+      }
+
+      if (req.user?.role === 'parent') {
+        params.push(req.user.id);
+        conditions.push(
+          `r."classId" IN (
+            SELECT DISTINCT s."classId"
+            FROM students s
+            INNER JOIN parent_students ps ON ps.student_id = s.id
+            WHERE ps.parent_id = $${params.length}
+          )`
+        );
+      }
+
+      const whereClause = conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : '';
+      const result = await query(
+        `
+          ${selectRoutinesBase}
+          ${whereClause}
+          ORDER BY array_position(ARRAY['saturday','sunday','monday','tuesday','wednesday','thursday','friday']::varchar[], r."dayOfWeek"), r."startTime", r.id
+        `,
+        params
+      );
+
+      res.json({ success: true, data: result.rows });
+    } catch (err) {
+      console.error(err);
+      res.status(500).json({ success: false, data: null, error: 'Internal server error' });
+    }
+  }
+
+  static async create(req: AuthRequest, res: ExpressResponse) {
+    try {
+      const { classId, teacherId, dayOfWeek, startTime, endTime, title } = req.body as {
+        classId: string;
+        teacherId: string;
+        dayOfWeek: DayOfWeek;
+        startTime: string;
+        endTime: string;
+        title: string;
+      };
+
+      const error = await validateRoutinePayload({ classId, teacherId, dayOfWeek, startTime, endTime, title });
+      if (error) {
+        return buildRoutineError(res, error);
+      }
+
+      const result = await query(
+        `
+          INSERT INTO routines ("classId", "teacherId", "dayOfWeek", "startTime", "endTime", title)
+          VALUES ($1, $2, $3, $4, $5, $6)
+          RETURNING id
+        `,
+        [classId, teacherId, dayOfWeek, startTime, endTime, title.trim()]
+      );
+
+      const created = await query(`${selectRoutinesBase} WHERE r.id = $1`, [result.rows[0].id]);
+      res.status(201).json({ success: true, data: created.rows[0] });
+    } catch (err) {
+      console.error(err);
+      res.status(500).json({ success: false, data: null, error: 'Internal server error' });
+    }
+  }
+
+  static async update(req: AuthRequest, res: ExpressResponse) {
+    try {
+      const id = Number(req.params.id);
+      const { classId, teacherId, dayOfWeek, startTime, endTime, title } = req.body as {
+        classId: string;
+        teacherId: string;
+        dayOfWeek: DayOfWeek;
+        startTime: string;
+        endTime: string;
+        title: string;
+      };
+
+      const existing = await query('SELECT id FROM routines WHERE id = $1', [id]);
+      if (existing.rows.length === 0) {
+        return buildRoutineError(res, 'Routine not found.', 404);
+      }
+
+      const error = await validateRoutinePayload({ classId, teacherId, dayOfWeek, startTime, endTime, title, routineId: id });
+      if (error) {
+        return buildRoutineError(res, error);
+      }
+
+      await query(
+        `
+          UPDATE routines
+          SET "classId" = $1, "teacherId" = $2, "dayOfWeek" = $3, "startTime" = $4, "endTime" = $5, title = $6
+          WHERE id = $7
+        `,
+        [classId, teacherId, dayOfWeek, startTime, endTime, title.trim(), id]
+      );
+
+      const updated = await query(`${selectRoutinesBase} WHERE r.id = $1`, [id]);
+      res.json({ success: true, data: updated.rows[0] });
+    } catch (err) {
+      console.error(err);
+      res.status(500).json({ success: false, data: null, error: 'Internal server error' });
+    }
+  }
+
+  static async delete(req: AuthRequest, res: ExpressResponse) {
+    try {
+      const id = Number(req.params.id);
+      const result = await query('DELETE FROM routines WHERE id = $1 RETURNING id', [id]);
+      if (result.rows.length === 0) {
+        return buildRoutineError(res, 'Routine not found.', 404);
+      }
+
+      res.json({ success: true, data: { deleted: true, id } });
     } catch (err) {
       console.error(err);
       res.status(500).json({ success: false, data: null, error: 'Internal server error' });

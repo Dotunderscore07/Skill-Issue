@@ -14,6 +14,7 @@ import { TeachersView } from './TeachersView';
 import { ChildrenView } from './ChildrenView';
 import { ClassesView } from './ClassesView';
 import { CoordinatorMessagesView } from './CoordinatorMessagesView';
+import { RoutinesView } from './RoutinesView';
 import { useAppContext } from '../../modules/shared/context/AppContext';
 import { ViewType } from '../../modules/shared/types';
 
@@ -55,6 +56,8 @@ export function AuthenticatedLayout() {
           return <ChildrenView />;
         case 'classes':
           return <ClassesView />;
+        case 'routines':
+          return <RoutinesView />;
         case 'announcements':
           return <AnnouncementsView user={user} announcements={announcements} onAdd={addAnnouncement} />;
         case 'messages':
@@ -78,6 +81,8 @@ export function AuthenticatedLayout() {
         );
       case 'messages':
         return <MessagingSystem user={user} messages={messages} onSend={sendMessage} />;
+      case 'routines':
+        return <RoutinesView />;
       case 'attendance':
         return <AttendanceView user={user} attendance={attendance} onUpdateAttendance={updateAttendance} />;
       case 'announcements':

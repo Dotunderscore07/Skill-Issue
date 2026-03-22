@@ -3,6 +3,7 @@ export type AttendanceStatus = 'present' | 'late' | 'absent' | 'unmarked';
 export type AnnouncementType = 'info' | 'urgent' | 'event';
 export type MoodType = 'happy' | 'neutral' | 'sad' | 'energetic';
 export type MessageKind = 'direct' | 'broadcast';
+export type DayOfWeek = 'sunday' | 'monday' | 'tuesday' | 'wednesday' | 'thursday' | 'friday' | 'saturday';
 
 export interface IUser {
   id: string;
@@ -61,6 +62,18 @@ export interface IMessage {
   timestamp: string;
   read: boolean;
   kind: MessageKind;
+}
+
+export interface IRoutine {
+  id: number;
+  classId: string;
+  className?: string;
+  teacherId: string;
+  teacherName?: string;
+  dayOfWeek: DayOfWeek;
+  startTime: string;
+  endTime: string;
+  title: string;
 }
 
 export interface IApiResponse<T> {

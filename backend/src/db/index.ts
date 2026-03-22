@@ -9,6 +9,7 @@ import {
   INITIAL_ACTIVITIES,
   INITIAL_ATTENDANCE,
   INITIAL_MESSAGES,
+  INITIAL_ROUTINES,
 } from '../models/mockData';
 
 dotenv.config();
@@ -49,21 +50,7 @@ export const initDb = async () => {
     pool = new Pool({ connectionString: dbUrl });
 
     await pool.query(`
-      DROP TABLE IF EXISTS messages CASCADE;
-      DROP TABLE IF EXISTS attendance_records CASCADE;
-      DROP TABLE IF EXISTS activities CASCADE;
-      DROP TABLE IF EXISTS announcements CASCADE;
-      DROP TABLE IF EXISTS class_teachers CASCADE;
-      DROP TABLE IF EXISTS class_subjects CASCADE;
-      DROP TABLE IF EXISTS parent_students CASCADE;
-      DROP TABLE IF EXISTS subjects CASCADE;
-      DROP TABLE IF EXISTS classes CASCADE;
-      DROP TABLE IF EXISTS students CASCADE;
-      DROP TABLE IF EXISTS users CASCADE;
-    `);
-
-    await pool.query(`
-      CREATE TABLE users (
+      CREATE TABLE IF NOT EXISTS users (
         id VARCHAR(50) PRIMARY KEY,
         name VARCHAR(255) NOT NULL,
         phone VARCHAR(20) UNIQUE NOT NULL,
@@ -72,12 +59,12 @@ export const initDb = async () => {
         avatar VARCHAR(10) NOT NULL DEFAULT ''
       );
 
-      CREATE TABLE classes (
+      CREATE TABLE IF NOT EXISTS classes (
         id VARCHAR(50) PRIMARY KEY,
         name VARCHAR(255) NOT NULL
       );
 
-      CREATE TABLE students (
+      CREATE TABLE IF NOT EXISTS students (
         id VARCHAR(50) PRIMARY KEY,
         name VARCHAR(255) NOT NULL,
         dob VARCHAR(20) NOT NULL,
@@ -85,30 +72,30 @@ export const initDb = async () => {
         "classId" VARCHAR(50) REFERENCES classes(id) ON DELETE SET NULL
       );
 
-      CREATE TABLE subjects (
+      CREATE TABLE IF NOT EXISTS subjects (
         id VARCHAR(50) PRIMARY KEY,
         name VARCHAR(255) NOT NULL
       );
 
-      CREATE TABLE class_teachers (
+      CREATE TABLE IF NOT EXISTS class_teachers (
         class_id VARCHAR(50) REFERENCES classes(id) ON DELETE CASCADE,
         teacher_id VARCHAR(50) REFERENCES users(id) ON DELETE CASCADE,
         PRIMARY KEY (class_id, teacher_id)
       );
 
-      CREATE TABLE class_subjects (
+      CREATE TABLE IF NOT EXISTS class_subjects (
         class_id VARCHAR(50) REFERENCES classes(id) ON DELETE CASCADE,
         subject_id VARCHAR(50) REFERENCES subjects(id) ON DELETE CASCADE,
         PRIMARY KEY (class_id, subject_id)
       );
 
-      CREATE TABLE parent_students (
+      CREATE TABLE IF NOT EXISTS parent_students (
         parent_id VARCHAR(50) REFERENCES users(id) ON DELETE CASCADE,
         student_id VARCHAR(50) REFERENCES students(id) ON DELETE CASCADE,
         PRIMARY KEY (parent_id, student_id)
       );
 
-      CREATE TABLE announcements (
+      CREATE TABLE IF NOT EXISTS announcements (
         id SERIAL PRIMARY KEY,
         text TEXT NOT NULL,
         date VARCHAR(50) NOT NULL,
@@ -117,7 +104,7 @@ export const initDb = async () => {
         "classId" VARCHAR(50) REFERENCES classes(id) ON DELETE SET NULL
       );
 
-      CREATE TABLE activities (
+      CREATE TABLE IF NOT EXISTS activities (
         id SERIAL PRIMARY KEY,
         "studentId" VARCHAR(50) NOT NULL,
         text TEXT NOT NULL,
@@ -125,14 +112,14 @@ export const initDb = async () => {
         mood VARCHAR(50) NOT NULL
       );
 
-      CREATE TABLE attendance_records (
+      CREATE TABLE IF NOT EXISTS attendance_records (
         id SERIAL PRIMARY KEY,
         date VARCHAR(50) NOT NULL,
         "studentId" VARCHAR(50) NOT NULL,
         status VARCHAR(50) NOT NULL
       );
 
-      CREATE TABLE messages (
+      CREATE TABLE IF NOT EXISTS messages (
         id SERIAL PRIMARY KEY,
         "fromId" VARCHAR(50) NOT NULL,
         "toId" VARCHAR(50),
@@ -141,6 +128,16 @@ export const initDb = async () => {
         timestamp VARCHAR(50) NOT NULL,
         read BOOLEAN DEFAULT false,
         kind VARCHAR(50) NOT NULL DEFAULT 'direct'
+      );
+
+      CREATE TABLE IF NOT EXISTS routines (
+        id SERIAL PRIMARY KEY,
+        "classId" VARCHAR(50) NOT NULL REFERENCES classes(id) ON DELETE CASCADE,
+        "teacherId" VARCHAR(50) NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        "dayOfWeek" VARCHAR(20) NOT NULL,
+        "startTime" VARCHAR(5) NOT NULL,
+        "endTime" VARCHAR(5) NOT NULL,
+        title VARCHAR(255) NOT NULL
       );
     `);
 
@@ -214,9 +211,17 @@ export const initDb = async () => {
       );
     }
 
+    for (const routine of INITIAL_ROUTINES) {
+      await pool.query(
+        'INSERT INTO routines (id, "classId", "teacherId", "dayOfWeek", "startTime", "endTime", title) VALUES ($1, $2, $3, $4, $5, $6, $7) ON CONFLICT (id) DO NOTHING',
+        [routine.id, routine.classId, routine.teacherId, routine.dayOfWeek, routine.startTime, routine.endTime, routine.title]
+      );
+    }
+
     await pool.query(`SELECT setval('activities_id_seq', COALESCE((SELECT MAX(id) FROM activities), 1));`);
     await pool.query(`SELECT setval('announcements_id_seq', COALESCE((SELECT MAX(id) FROM announcements), 1));`);
     await pool.query(`SELECT setval('messages_id_seq', COALESCE((SELECT MAX(id) FROM messages), 1));`);
+    await pool.query(`SELECT setval('routines_id_seq', COALESCE((SELECT MAX(id) FROM routines), 1));`);
 
     console.log('Database initialized with mock data successfully');
   } catch (error) {

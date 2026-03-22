@@ -13,6 +13,8 @@ import {
   ViewType,
   Student,
   Class,
+  Routine,
+  DayOfWeek,
 } from '../types';
 import {
   AnnouncementApi,
@@ -25,6 +27,7 @@ import {
   UserApi,
   TeacherApi,
   DashboardApi,
+  RoutineApi,
 } from '../../../lib/api-client';
 
 interface CoordinatorSummary {
@@ -61,6 +64,15 @@ interface ClassPayload {
   teacherIds: string[];
 }
 
+interface RoutinePayload {
+  classId: string;
+  teacherId: string;
+  dayOfWeek: DayOfWeek;
+  startTime: string;
+  endTime: string;
+  title: string;
+}
+
 interface AppContextValue {
   user: User | null;
   token: string | null;
@@ -74,6 +86,7 @@ interface AppContextValue {
   allUsers: User[];
   students: Student[];
   classes: Class[];
+  routines: Routine[];
   selectedChild: Student | null;
   selectedClass: Class | null;
   selectedDate: string;
@@ -97,6 +110,9 @@ interface AppContextValue {
   updateStudent: (id: string, payload: StudentPayload) => Promise<void>;
   createClass: (payload: ClassPayload) => Promise<void>;
   updateClass: (id: string, payload: ClassPayload) => Promise<void>;
+  createRoutine: (payload: RoutinePayload) => Promise<void>;
+  updateRoutine: (id: number, payload: RoutinePayload) => Promise<void>;
+  deleteRoutine: (id: number) => Promise<void>;
 }
 
 const AppContext = createContext<AppContextValue | null>(null);
@@ -114,6 +130,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const [allUsers, setAllUsers] = useState<User[]>([]);
   const [students, setStudents] = useState<Student[]>([]);
   const [classes, setClasses] = useState<Class[]>([]);
+  const [routines, setRoutines] = useState<Routine[]>([]);
   const [selectedChild, setSelectedChild] = useState<Student | null>(null);
   const [selectedClass, setSelectedClass] = useState<Class | null>(null);
   const [selectedDate, setSelectedDate] = useState<string>(new Date().toISOString().split('T')[0]);
@@ -200,12 +217,15 @@ export function AppProvider({ children }: { children: ReactNode }) {
   );
 
   const loadData = React.useCallback(async (activeUser: User) => {
-    const [anns, acts, atts, studs, clss, allUsrs, directMessages, broadcasts] = await Promise.all([
+    const shouldLoadRoutines =
+      activeUser.role === 'teacher' || activeUser.role === 'coordinator' || activeUser.role === 'parent';
+    const [anns, acts, atts, studs, clss, routinesData, allUsrs, directMessages, broadcasts] = await Promise.all([
       AnnouncementApi.getAll(),
       ActivityApi.getAll(),
       AttendanceApi.getAll(),
       StudentApi.getAll(),
       ClassApi.getAll(),
+      shouldLoadRoutines ? RoutineApi.getAll() : Promise.resolve([]),
       UserApi.getAll(),
       MessageApi.getAll(),
       activeUser.role === 'coordinator' ? MessageApi.getBroadcasts() : Promise.resolve([]),
@@ -216,6 +236,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     setAttendance(atts);
     setStudents(studs);
     setClasses(clss);
+    setRoutines(routinesData);
     setAllUsers(allUsrs);
     setMessages(directMessages);
     setBroadcastMessages(broadcasts);
@@ -250,16 +271,21 @@ export function AppProvider({ children }: { children: ReactNode }) {
       setAttendance([]);
       setStudents([]);
       setClasses([]);
+      setRoutines([]);
       setAllUsers([]);
       setMessages([]);
       setBroadcastMessages([]);
       setSelectedChild(null);
       setSelectedClass(null);
       setCoordinatorSummary(null);
+      setAuthLoading(false);
       return;
     }
 
-    loadData(user).catch((err) => console.error('Failed to load initial data:', err));
+    setAuthLoading(true);
+    loadData(user)
+      .catch((err) => console.error('Failed to load initial data:', err))
+      .finally(() => setAuthLoading(false));
   }, [token, user, loadData]);
 
   const login = (userData: User, authToken: string) => {
@@ -373,6 +399,29 @@ export function AppProvider({ children }: { children: ReactNode }) {
     });
   };
 
+  const createRoutine = async (payload: RoutinePayload) => {
+    const created = await RoutineApi.create(payload);
+    setRoutines((prev) =>
+      [...prev, created].sort((a, b) =>
+        `${a.dayOfWeek}-${a.startTime}-${a.id}`.localeCompare(`${b.dayOfWeek}-${b.startTime}-${b.id}`)
+      )
+    );
+  };
+
+  const updateRoutine = async (id: number, payload: RoutinePayload) => {
+    const updated = await RoutineApi.update(id, payload);
+    setRoutines((prev) =>
+      prev
+        .map((entry) => (entry.id === id ? updated : entry))
+        .sort((a, b) => `${a.dayOfWeek}-${a.startTime}-${a.id}`.localeCompare(`${b.dayOfWeek}-${b.startTime}-${b.id}`))
+    );
+  };
+
+  const deleteRoutine = async (id: number) => {
+    await RoutineApi.delete(id);
+    setRoutines((prev) => prev.filter((entry) => entry.id !== id));
+  };
+
   return (
     <AppContext.Provider
       value={{
@@ -388,6 +437,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
         allUsers,
         students,
         classes,
+        routines,
         selectedChild,
         selectedClass,
         selectedDate,
@@ -411,6 +461,9 @@ export function AppProvider({ children }: { children: ReactNode }) {
         updateStudent,
         createClass,
         updateClass,
+        createRoutine,
+        updateRoutine,
+        deleteRoutine,
       }}
     >
       {children}

@@ -1,7 +1,7 @@
 import express, { Router, Request, Response } from 'express';
 import cors from 'cors';
 import cookieParser from 'cookie-parser';
-import { UserController, StudentController, AnnouncementController, ActivityController, AttendanceController, MessageController, ClassController, DashboardController } from './controllers';
+import { UserController, StudentController, AnnouncementController, ActivityController, AttendanceController, MessageController, ClassController, RoutineController, DashboardController } from './controllers';
 import { AuthController } from './controllers/AuthController';
 import { auth, authorizeRole } from './middlewares/auth';
 import { initDb } from './db';
@@ -34,6 +34,12 @@ router.put('/users/teachers/:id', auth, authorizeRole('coordinator'), UserContro
 router.get('/classes', auth, ClassController.getAll);
 router.post('/classes', auth, authorizeRole('coordinator'), ClassController.create);
 router.put('/classes/:id', auth, authorizeRole('coordinator'), ClassController.update);
+
+// Routines
+router.get('/routines', auth, authorizeRole('teacher', 'coordinator', 'parent', 'admin'), RoutineController.getAll);
+router.post('/routines', auth, authorizeRole('coordinator'), RoutineController.create);
+router.put('/routines/:id', auth, authorizeRole('coordinator'), RoutineController.update);
+router.delete('/routines/:id', auth, authorizeRole('coordinator'), RoutineController.delete);
 
 // Students
 router.get('/students', auth, StudentController.getAll);

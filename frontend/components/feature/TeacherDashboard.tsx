@@ -1,7 +1,7 @@
 'use client';
 
 import React from 'react';
-import { Users, MessageCircle, Calendar, Plus } from 'lucide-react';
+import { Clock3, Users, Calendar, Plus } from 'lucide-react';
 import { Card, Badge, Button } from '../ui';
 import { User, Announcement, AttendanceRecord } from '../../modules/shared/types';
 import { useAppContext } from '../../modules/shared/context/AppContext';
@@ -13,23 +13,15 @@ const getGreeting = () => {
   return 'Good Evening';
 };
 
-const buildMonthGrid = (date: string) => {
-  const [year, month] = date.split('-').map(Number);
-  const firstDay = new Date(year, month - 1, 1);
-  const startOffset = firstDay.getDay();
-  const daysInMonth = new Date(year, month, 0).getDate();
-  const cells = Array.from({ length: startOffset }, () => null as number | null);
-
-  for (let day = 1; day <= daysInMonth; day += 1) {
-    cells.push(day);
-  }
-
-  while (cells.length % 7 !== 0) {
-    cells.push(null);
-  }
-
-  return cells;
-};
+const getDayOfWeek = (date: string) =>
+  new Date(`${date}T00:00:00`).toLocaleDateString('en-US', { weekday: 'long' }).toLowerCase() as
+    | 'sunday'
+    | 'monday'
+    | 'tuesday'
+    | 'wednesday'
+    | 'thursday'
+    | 'friday'
+    | 'saturday';
 
 interface TeacherDashboardProps {
   user: User;
@@ -42,10 +34,11 @@ export function TeacherDashboard({ user, attendance, announcements, onNavigate }
   const {
     students: allStudents,
     classes: allClasses,
+    routines,
+    allUsers,
     selectedClass,
     setSelectedClass,
     selectedDate,
-    setSelectedDate,
   } = useAppContext();
 
   const teacherClasses = allClasses.filter((entry) => (entry.teacherIds ?? []).includes(user.id));
@@ -55,12 +48,10 @@ export function TeacherDashboard({ user, attendance, announcements, onNavigate }
   const presentCount = attendance.filter(
     (entry) => entry.date === selectedDate && entry.status === 'present' && classStudents.some((student) => student.id === entry.studentId)
   ).length;
-  const monthGrid = buildMonthGrid(selectedDate);
-  const today = new Date();
-  const selectedMonth = new Date(selectedDate);
   const visibleAnnouncements = announcements.filter(
     (announcement) => !announcement.classId || announcement.classId === selectedClass?.id
   );
+  const teachers = allUsers.filter((entry) => entry.role === 'teacher');
 
   React.useEffect(() => {
     if (availableClasses.length === 0) {
@@ -71,6 +62,14 @@ export function TeacherDashboard({ user, attendance, announcements, onNavigate }
       setSelectedClass(availableClasses[0]);
     }
   }, [availableClasses, selectedClass, setSelectedClass]);
+
+  const todayDay = getDayOfWeek(selectedDate);
+  const todaysRoutines = routines
+    .filter((routine) => routine.classId === selectedClass?.id && routine.dayOfWeek === todayDay)
+    .sort((a, b) => a.startTime.localeCompare(b.startTime));
+
+  const formatTime = (value: string) =>
+    new Date(`2000-01-01T${value}:00`).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
 
   return (
     <div className="space-y-6">
@@ -137,57 +136,30 @@ export function TeacherDashboard({ user, attendance, announcements, onNavigate }
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <Card className="flex flex-col">
-          <div className="p-4 border-b border-gray-100 flex justify-between items-center">
-            <div>
-              <h3 className="font-bold text-lg">Class Calendar</h3>
-              <p className="text-xs text-gray-400 mt-1">Selected date: {selectedDate}</p>
-            </div>
-            {selectedClass && <Badge color="indigo">{selectedClass.name}</Badge>}
+          <div className="p-4 border-b border-gray-100 flex items-center gap-2">
+            <Clock3 size={18} className="text-sky-600" />
+            <h3 className="font-bold text-lg">Today&apos;s Routine</h3>
           </div>
-          <div className="p-4">
-            <div className="grid grid-cols-7 gap-2 text-center text-xs font-semibold text-gray-400 mb-3">
-              {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map((day) => (
-                <span key={day}>{day}</span>
-              ))}
-            </div>
-            <div className="grid grid-cols-7 gap-2">
-              {monthGrid.map((day, index) => {
-                const isSelected =
-                  day !== null &&
-                  day === selectedMonth.getDate() &&
-                  selectedMonth.getMonth() === new Date(selectedDate).getMonth() &&
-                  selectedMonth.getFullYear() === new Date(selectedDate).getFullYear();
-                const isToday =
-                  day !== null &&
-                  day === today.getDate() &&
-                  selectedMonth.getMonth() === today.getMonth() &&
-                  selectedMonth.getFullYear() === today.getFullYear();
-
-                return (
-                  <button
-                    key={`${day ?? 'blank'}-${index}`}
-                    type="button"
-                    disabled={day === null}
-                    onClick={() => {
-                      if (day === null) return;
-                      const nextDate = new Date(selectedMonth.getFullYear(), selectedMonth.getMonth(), day);
-                      setSelectedDate(nextDate.toISOString().split('T')[0]);
-                    }}
-                    className={`h-10 rounded-xl text-sm ${
-                      day === null
-                        ? 'bg-transparent'
-                        : isSelected
-                        ? 'bg-indigo-600 text-white'
-                        : isToday
-                        ? 'bg-indigo-50 text-indigo-700 border border-indigo-200'
-                        : 'bg-gray-50 text-gray-700 hover:bg-gray-100'
-                    }`}
-                  >
-                    {day ?? ''}
-                  </button>
-                );
-              })}
-            </div>
+          <div className="p-4 space-y-4">
+            {todaysRoutines.length === 0 ? (
+              <div className="rounded-2xl border border-dashed border-gray-200 bg-gray-50 px-6 py-10 text-center">
+                <p className="font-semibold text-gray-700">No periods scheduled for today.</p>
+                <p className="mt-1 text-sm text-gray-500">Open the routines tab to view the full weekly routine.</p>
+              </div>
+            ) : (
+              todaysRoutines.map((routine) => (
+                <div key={routine.id} className="grid grid-cols-[100px_minmax(0,1fr)] gap-4">
+                  <div className="flex flex-col justify-center text-sm font-semibold text-gray-700">
+                    <span>{formatTime(routine.startTime)}</span>
+                    <span className="text-gray-400">{formatTime(routine.endTime)}</span>
+                  </div>
+                  <div className="rounded-2xl border border-sky-200 bg-sky-100/80 px-5 py-4 shadow-sm">
+                    <p className="text-lg font-bold text-gray-900">{routine.title}</p>
+                    <p className="mt-2 text-sm text-gray-700">{routine.teacherName ?? teachers.find((entry) => entry.id === routine.teacherId)?.name ?? 'Assigned teacher'}</p>
+                  </div>
+                </div>
+              ))
+            )}
           </div>
         </Card>
 

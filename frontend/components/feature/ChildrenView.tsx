@@ -47,6 +47,10 @@ export function ChildrenView() {
 
   const handleSubmit = async (event: React.FormEvent) => {
     event.preventDefault();
+    if (!form.classId) {
+      return;
+    }
+
     const payload = {
       ...form,
       parentId: form.parentId || undefined,
@@ -96,7 +100,7 @@ export function ChildrenView() {
               <img src={form.photo} alt="Child preview" className="w-20 h-20 rounded-2xl object-cover border border-gray-200" />
             )}
           </div>
-          <Button type="submit">
+          <Button type="submit" disabled={!form.name || !form.dob || !form.classId}>
             <Plus size={18} />
             {editingStudent ? 'Save Child' : 'Create Child'}
           </Button>

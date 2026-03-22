@@ -3,6 +3,7 @@ export type AttendanceStatus = 'present' | 'late' | 'absent' | 'unmarked';
 export type AnnouncementType = 'info' | 'urgent' | 'event';
 export type MoodType = 'happy' | 'neutral' | 'sad' | 'energetic';
 export type MessageKind = 'direct' | 'broadcast';
+export type DayOfWeek = 'sunday' | 'monday' | 'tuesday' | 'wednesday' | 'thursday' | 'friday' | 'saturday';
 export type ViewType =
   | 'dashboard'
   | 'messages'
@@ -11,7 +12,8 @@ export type ViewType =
   | 'activities'
   | 'teachers'
   | 'children'
-  | 'classes';
+  | 'classes'
+  | 'routines';
 
 export interface User {
   id: string;
@@ -70,4 +72,16 @@ export interface Message {
   timestamp: string;
   read: boolean;
   kind: MessageKind;
+}
+
+export interface Routine {
+  id: number;
+  classId: string;
+  className?: string;
+  teacherId: string;
+  teacherName?: string;
+  dayOfWeek: DayOfWeek;
+  startTime: string;
+  endTime: string;
+  title: string;
 }

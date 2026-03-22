@@ -11,6 +11,7 @@ import {
   LogOut,
   Shapes,
   Users,
+  Clock3,
 } from 'lucide-react';
 import { User, ViewType } from '../../modules/shared/types';
 import { Button } from '../ui';
@@ -52,11 +53,13 @@ export function Sidebar({ user, view, onViewChange, onLogout }: SidebarProps) {
           { id: 'teachers' as ViewType, icon: Users, label: 'Teachers' },
           { id: 'children' as ViewType, icon: Baby, label: 'Children' },
           { id: 'classes' as ViewType, icon: Shapes, label: 'Classes' },
+          { id: 'routines' as ViewType, icon: Clock3, label: 'Routines' },
           { id: 'announcements' as ViewType, icon: Bell, label: 'Announcements' },
           { id: 'messages' as ViewType, icon: MessageCircle, label: 'Messages' },
         ]
       : [
           { id: 'dashboard' as ViewType, icon: Home, label: 'Dashboard' },
+          { id: 'routines' as ViewType, icon: Clock3, label: 'Routines' },
           { id: 'messages' as ViewType, icon: MessageCircle, label: 'Messages' },
           { id: 'attendance' as ViewType, icon: Calendar, label: 'Attendance' },
           { id: 'announcements' as ViewType, icon: Bell, label: 'Announcements' },

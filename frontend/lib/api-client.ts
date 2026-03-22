@@ -5,10 +5,12 @@ import {
   Class,
   Message,
   MessageKind,
+  Routine,
   Student,
   User,
   AnnouncementType,
   AttendanceStatus,
+  DayOfWeek,
   MoodType,
 } from '../modules/shared/types';
 
@@ -211,6 +213,37 @@ export class ClassApi {
     return request<Class>(`${BASE}/classes/${id}`, {
       method: 'PUT',
       body: JSON.stringify(payload),
+    });
+  }
+}
+
+export class RoutineApi {
+  static getAll(filters?: { classId?: string; teacherId?: string; dayOfWeek?: DayOfWeek }) {
+    const params = new URLSearchParams();
+    if (filters?.classId) params.set('classId', filters.classId);
+    if (filters?.teacherId) params.set('teacherId', filters.teacherId);
+    if (filters?.dayOfWeek) params.set('dayOfWeek', filters.dayOfWeek);
+    const queryString = params.toString();
+    return request<Routine[]>(`${BASE}/routines${queryString ? `?${queryString}` : ''}`);
+  }
+
+  static create(payload: { classId: string; teacherId: string; dayOfWeek: DayOfWeek; startTime: string; endTime: string; title: string }) {
+    return request<Routine>(`${BASE}/routines`, {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    });
+  }
+
+  static update(id: number, payload: { classId: string; teacherId: string; dayOfWeek: DayOfWeek; startTime: string; endTime: string; title: string }) {
+    return request<Routine>(`${BASE}/routines/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(payload),
+    });
+  }
+
+  static delete(id: number) {
+    return request<{ deleted: boolean; id: number }>(`${BASE}/routines/${id}`, {
+      method: 'DELETE',
     });
   }
 }

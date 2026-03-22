@@ -6,6 +6,7 @@ import {
   IActivity,
   IAttendanceRecord,
   IMessage,
+  IRoutine,
 } from '../interfaces';
 
 export const MOCK_USERS: IUser[] = [
@@ -106,5 +107,39 @@ export const INITIAL_MESSAGES: IMessage[] = [
     timestamp: '09:00 AM',
     read: true,
     kind: 'broadcast',
+  },
+];
+
+export const INITIAL_ROUTINES: IRoutine[] = [
+  {
+    id: 1,
+    classId: 'c1',
+    className: 'Sunshine Kindergarten (K1)',
+    teacherId: 't1',
+    teacherName: 'Ms. Johnson',
+    dayOfWeek: 'sunday',
+    startTime: '09:00',
+    endTime: '09:45',
+    title: 'Morning Circle',
+  },
+  {
+    id: 2,
+    classId: 'c1',
+    className: 'Sunshine Kindergarten (K1)',
+    teacherId: 't1',
+    dayOfWeek: 'sunday',
+    startTime: '10:00',
+    endTime: '10:45',
+    title: 'Phonics',
+  },
+  {
+    id: 3,
+    classId: 'c1',
+    className: 'Sunshine Kindergarten (K1)',
+    teacherId: 't1',
+    dayOfWeek: 'monday',
+    startTime: '09:00',
+    endTime: '09:45',
+    title: 'Story Time',
   },
 ];

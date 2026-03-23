@@ -13,7 +13,6 @@ import { ActivitiesView } from './ActivitiesView';
 import { TeachersView } from './TeachersView';
 import { ChildrenView } from './ChildrenView';
 import { ClassesView } from './ClassesView';
-import { CoordinatorMessagesView } from './CoordinatorMessagesView';
 import { RoutinesView } from './RoutinesView';
 import { useAppContext } from '../../modules/shared/context/AppContext';
 import { ViewType } from '../../modules/shared/types';
@@ -34,9 +33,14 @@ export function AuthenticatedLayout() {
     deleteActivity,
     updateAttendance,
     sendMessage,
+    setSelectedDate,
   } = useAppContext();
 
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+
+  React.useEffect(() => {
+    setSelectedDate(new Date().toISOString().split('T')[0]);
+  }, [view, setSelectedDate]);
 
   if (!user) return null;
 
@@ -60,8 +64,6 @@ export function AuthenticatedLayout() {
           return <RoutinesView />;
         case 'announcements':
           return <AnnouncementsView user={user} announcements={announcements} onAdd={addAnnouncement} />;
-        case 'messages':
-          return <CoordinatorMessagesView />;
         default:
           return <CoordinatorDashboard user={user} />;
       }
@@ -77,7 +79,7 @@ export function AuthenticatedLayout() {
             onNavigate={(nextView) => setView(nextView as ViewType)}
           />
         ) : (
-          <ParentDashboard user={user} activities={activities} announcements={announcements} />
+          <ParentDashboard user={user} announcements={announcements} />
         );
       case 'messages':
         return <MessagingSystem user={user} messages={messages} onSend={sendMessage} />;

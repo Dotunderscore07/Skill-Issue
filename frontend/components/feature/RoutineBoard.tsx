@@ -6,7 +6,6 @@ import { Button, Card } from '../ui';
 import { Class, DayOfWeek, Routine, User } from '../../modules/shared/types';
 
 export const DAY_LABELS: { key: DayOfWeek; label: string }[] = [
-  { key: 'saturday', label: 'Saturday' },
   { key: 'sunday', label: 'Sunday' },
   { key: 'monday', label: 'Monday' },
   { key: 'tuesday', label: 'Tuesday' },
@@ -171,12 +170,6 @@ export function RoutineBoard({
                 ))}
               </select>
             )}
-            {editable && (
-              <Button variant={editingRoutineId !== null ? 'secondary' : 'primary'} onClick={editingRoutineId !== null ? resetForm : undefined}>
-                <Plus size={16} />
-                {editingRoutineId !== null ? 'Cancel Edit' : 'Add Period'}
-              </Button>
-            )}
           </div>
         </div>
       </Card>
@@ -206,8 +199,9 @@ export function RoutineBoard({
           <form onSubmit={handleSubmit} className="space-y-4">
             <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
               <div className="space-y-2">
-                <label className="text-sm font-medium text-gray-700">Class</label>
+                <label className="text-sm font-medium text-gray-700">Class <span className="text-red-500">*</span></label>
                 <select
+                  required
                   value={form.classId}
                   onChange={(event) => {
                     const nextClassId = event.target.value;
@@ -224,8 +218,9 @@ export function RoutineBoard({
                 </select>
               </div>
               <div className="space-y-2">
-                <label className="text-sm font-medium text-gray-700">Day</label>
+                <label className="text-sm font-medium text-gray-700">Day <span className="text-red-500">*</span></label>
                 <select
+                  required
                   value={form.dayOfWeek}
                   onChange={(event) => {
                     const nextDay = event.target.value as DayOfWeek;
@@ -242,8 +237,9 @@ export function RoutineBoard({
                 </select>
               </div>
               <div className="space-y-2">
-                <label className="text-sm font-medium text-gray-700">Teacher</label>
+                <label className="text-sm font-medium text-gray-700">Teacher <span className="text-red-500">*</span></label>
                 <select
+                  required
                   value={form.teacherId}
                   onChange={(event) => setForm((current) => ({ ...current, teacherId: event.target.value }))}
                   className="w-full rounded-xl border border-gray-200 bg-white px-4 py-2 text-sm text-gray-700"
@@ -260,8 +256,9 @@ export function RoutineBoard({
                 </select>
               </div>
               <div className="space-y-2">
-                <label className="text-sm font-medium text-gray-700">Start Time</label>
+                <label className="text-sm font-medium text-gray-700">Start Time <span className="text-red-500">*</span></label>
                 <input
+                  required
                   type="time"
                   value={form.startTime}
                   onChange={(event) => setForm((current) => ({ ...current, startTime: event.target.value }))}
@@ -269,8 +266,9 @@ export function RoutineBoard({
                 />
               </div>
               <div className="space-y-2">
-                <label className="text-sm font-medium text-gray-700">End Time</label>
+                <label className="text-sm font-medium text-gray-700">End Time <span className="text-red-500">*</span></label>
                 <input
+                  required
                   type="time"
                   value={form.endTime}
                   onChange={(event) => setForm((current) => ({ ...current, endTime: event.target.value }))}
@@ -278,8 +276,9 @@ export function RoutineBoard({
                 />
               </div>
               <div className="space-y-2 md:col-span-2 xl:col-span-1">
-                <label className="text-sm font-medium text-gray-700">Activity / Subject</label>
+                <label className="text-sm font-medium text-gray-700">Activity / Subject <span className="text-red-500">*</span></label>
                 <input
+                  required
                   value={form.title}
                   onChange={(event) => setForm((current) => ({ ...current, title: event.target.value }))}
                   placeholder="Phonics, Circle Time, Art..."
@@ -287,7 +286,12 @@ export function RoutineBoard({
                 />
               </div>
             </div>
-            <div className="flex justify-end">
+            <div className="flex justify-end gap-3 mt-4">
+              {editingRoutineId !== null && (
+                <Button type="button" variant="secondary" onClick={resetForm}>
+                  Go Back
+                </Button>
+              )}
               <Button type="submit" disabled={isSubmitting || availableTeachers.length === 0}>
                 {editingRoutineId !== null ? 'Save Period' : 'Create Period'}
               </Button>

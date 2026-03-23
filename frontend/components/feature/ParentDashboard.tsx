@@ -1,9 +1,9 @@
 'use client';
 
-import React from 'react';
-import { BookOpen, Bell } from 'lucide-react';
-import { Card } from '../ui';
-import { User, Activity, Announcement } from '../../modules/shared/types';
+import React, { useState, useRef } from 'react';
+import { Bell, Clock3, Pencil, X, Check, Camera } from 'lucide-react';
+import { Card, Badge, Button } from '../ui';
+import { User, Announcement } from '../../modules/shared/types';
 import { useAppContext } from '../../modules/shared/context/AppContext';
 
 const getGreeting = () => {
@@ -13,23 +13,98 @@ const getGreeting = () => {
   return 'Good Evening';
 };
 
+const getDayOfWeek = (dateStr: string) =>
+  ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'][new Date(`${dateStr}T00:00:00`).getDay()] as string;
+
 interface ParentDashboardProps {
   user: User;
-  activities: Activity[];
   announcements: Announcement[];
 }
 
-export function ParentDashboard({ user, activities, announcements }: ParentDashboardProps) {
+export function ParentDashboard({ user, announcements }: ParentDashboardProps) {
   const {
     students,
     selectedChild,
     setSelectedChild,
+    routines,
+    classes,
     selectedDate,
-    setSelectedDate,
     authLoading: loading,
+    updateUserProfile,
+    updateStudent,
   } = useAppContext();
 
+  const [editingProfile, setEditingProfile] = useState(false);
+  const [editingChild, setEditingChild] = useState(false);
+
+  // Parent profile edit state
+  const [profileName, setProfileName] = useState(user.name);
+  const [profilePhone, setProfilePhone] = useState(user.phone ?? '');
+  const [profilePhoto, setProfilePhoto] = useState('');
+  const parentPhotoRef = useRef<HTMLInputElement>(null);
+
+  // Child profile edit state
+  const [childName, setChildName] = useState('');
+  const [childPhoto, setChildPhoto] = useState('');
+  const childPhotoRef = useRef<HTMLInputElement>(null);
+
   const myChildren = students.filter((student) => student.parentId === user.id);
+  const today = getDayOfWeek(selectedDate);
+  const formattedDate = new Date(`${selectedDate}T00:00:00`).toLocaleDateString('en-US', {
+    day: 'numeric', month: 'long', year: 'numeric',
+  });
+
+  const formatTime = (value: string) =>
+    new Date(`2000-01-01T${value}:00`).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+
+  // Close edit form when switching children
+  React.useEffect(() => {
+    setEditingChild(false);
+  }, [selectedChild?.id]);
+
+  const readFile = (file: File): Promise<string> =>
+    new Promise((resolve) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve(typeof reader.result === 'string' ? reader.result : '');
+      reader.readAsDataURL(file);
+    });
+
+  const handleParentPhotoChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const dataUrl = await readFile(file);
+    setProfilePhoto(dataUrl);
+  };
+
+  const handleChildPhotoChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const dataUrl = await readFile(file);
+    setChildPhoto(dataUrl);
+  };
+
+  const handleSaveProfile = async () => {
+    const payload: { name: string; phone: string; avatar?: string } = {
+      name: profileName,
+      phone: profilePhone,
+    };
+    // Only send photo if a new one was picked
+    if (profilePhoto) payload.avatar = profilePhoto;
+    await updateUserProfile(user.id, payload);
+    setEditingProfile(false);
+  };
+
+  const handleSaveChild = async () => {
+    if (!selectedChild) return;
+    await updateStudent(selectedChild.id, {
+      name: childName,
+      dob: selectedChild.dob,
+      photo: childPhoto || selectedChild.photo,
+      parentId: selectedChild.parentId,
+      classId: selectedChild.classId,
+    });
+    setEditingChild(false);
+  };
 
   if (loading) return <div className="p-8 text-center text-gray-500">Loading your dashboard...</div>;
 
@@ -42,13 +117,22 @@ export function ParentDashboard({ user, activities, announcements }: ParentDashb
     );
   }
 
-  const recentActivities = activities.filter((activity) => activity.studentId === selectedChild.id && activity.date === selectedDate);
-  const visibleAnnouncements = announcements.filter(
-    (announcement) => !announcement.classId || announcement.classId === selectedChild.classId
-  );
+  const childClass = classes.find((c) => c.id === selectedChild.classId);
+  const todaysRoutines = routines
+    .filter((routine) => routine.classId === selectedChild.classId && routine.dayOfWeek === today)
+    .sort((a, b) => a.startTime.localeCompare(b.startTime));
+
+  const visibleAnnouncements = announcements
+    .filter((a) => !a.classId || a.classId === selectedChild.classId)
+    .slice(0, 5);
+
+  // Current avatar display
+  const currentAvatar = user.avatar;
+  const parentAvatarPreview = profilePhoto || (currentAvatar?.startsWith('data:') ? currentAvatar : '');
 
   return (
     <div className="space-y-6">
+      {/* Child switcher */}
       {myChildren.length > 1 && (
         <div className="flex bg-white rounded-lg p-1 w-full max-w-sm border shadow-sm overflow-x-auto no-scrollbar">
           <div className="flex flex-nowrap min-w-full gap-1">
@@ -56,7 +140,11 @@ export function ParentDashboard({ user, activities, announcements }: ParentDashb
               <button
                 key={child.id}
                 onClick={() => setSelectedChild(child)}
-                className={`flex-1 whitespace-nowrap py-1.5 px-4 text-sm font-medium rounded-md transition-all ${selectedChild.id === child.id ? 'bg-indigo-600 text-white shadow-sm' : 'text-gray-500 hover:text-gray-900 hover:bg-gray-50'}`}
+                className={`flex-1 whitespace-nowrap py-1.5 px-4 text-sm font-medium rounded-md transition-all ${
+                  selectedChild.id === child.id
+                    ? 'bg-indigo-600 text-white shadow-sm'
+                    : 'text-gray-500 hover:text-gray-900 hover:bg-gray-50'
+                }`}
               >
                 {child.name}
               </button>
@@ -65,68 +153,218 @@ export function ParentDashboard({ user, activities, announcements }: ParentDashb
         </div>
       )}
 
-      <div className="flex items-center justify-between bg-white p-6 rounded-2xl shadow-sm border border-gray-100">
-        <div className="flex items-center gap-4">
-          <div className="w-16 h-16 bg-blue-100 rounded-full flex items-center justify-center text-xl shadow-inner font-bold text-blue-700 overflow-hidden">
-            {selectedChild.photo ? (
-              <img src={selectedChild.photo} alt={selectedChild.name} className="w-full h-full object-cover" />
-            ) : (
-              selectedChild.name.slice(0, 2).toUpperCase()
-            )}
+      {/* Header Card */}
+      <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100">
+        <div className="flex items-center justify-between flex-wrap gap-4">
+          <div className="flex items-center gap-4">
+            {/* Child avatar */}
+            <div className="w-16 h-16 bg-blue-100 rounded-full flex items-center justify-center text-xl shadow-inner font-bold text-blue-700 overflow-hidden shrink-0">
+              {selectedChild.photo ? (
+                <img src={selectedChild.photo} alt={selectedChild.name} className="w-full h-full object-cover" />
+              ) : (
+                selectedChild.name.slice(0, 2).toUpperCase()
+              )}
+            </div>
+            <div>
+              <p className="text-sm font-medium text-indigo-600 mb-1">{getGreeting()}, {user.name}!</p>
+              <h2 className="text-2xl font-bold text-gray-900">{selectedChild.name}&apos;s Dashboard</h2>
+              {childClass && <p className="text-sm text-gray-500 mt-0.5">{childClass.name}</p>}
+            </div>
           </div>
-          <div>
-            <p className="text-sm font-medium text-indigo-600 mb-1">{getGreeting()}, {user.name}!</p>
-            <h2 className="text-2xl font-bold text-gray-900">{selectedChild.name}&apos;s Profile</h2>
-            <p className="text-gray-500">KinderConnect Updates</p>
+          {/* Edit buttons – consistent with system UI (secondary variant, pencil icon) */}
+          <div className="flex gap-2 flex-wrap">
+            <Button
+              variant="secondary"
+              onClick={() => {
+                setProfileName(user.name);
+                setProfilePhone(user.phone ?? '');
+                setProfilePhoto('');
+                setEditingProfile(true);
+                setEditingChild(false);
+              }}
+            >
+              <Pencil size={14} /> My Profile
+            </Button>
+            <Button
+              variant="secondary"
+              onClick={() => {
+                setChildName(selectedChild.name);
+                setChildPhoto(selectedChild.photo ?? '');
+                setEditingChild(true);
+                setEditingProfile(false);
+              }}
+            >
+              <Pencil size={14} /> Child Profile
+            </Button>
           </div>
         </div>
-        <input
-          type="date"
-          className="p-2 border rounded-lg bg-white shadow-sm focus:ring-2 focus:ring-indigo-500 outline-none"
-          value={selectedDate}
-          onChange={(e) => setSelectedDate(e.target.value)}
-        />
+
+        {/* Inline: Edit Parent Profile */}
+        {editingProfile && (
+          <div className="mt-5 p-4 bg-indigo-50 rounded-xl border border-indigo-100 space-y-4">
+            <h4 className="font-semibold text-gray-800 text-sm">Edit Your Profile</h4>
+
+            {/* Profile photo upload */}
+            <div className="flex items-center gap-4">
+              <div className="w-14 h-14 rounded-full bg-indigo-100 overflow-hidden flex items-center justify-center font-bold text-indigo-700 shrink-0">
+                {parentAvatarPreview ? (
+                  <img src={parentAvatarPreview} alt="Preview" className="w-full h-full object-cover" />
+                ) : (
+                  <span>{currentAvatar?.startsWith('data:') ? '' : currentAvatar}</span>
+                )}
+              </div>
+              <div>
+                <input
+                  type="file"
+                  accept="image/png,image/jpeg,image/webp,image/gif"
+                  ref={parentPhotoRef}
+                  className="hidden"
+                  onChange={handleParentPhotoChange}
+                />
+                <Button variant="secondary" onClick={() => parentPhotoRef.current?.click()}>
+                  <Camera size={14} /> Upload Photo
+                </Button>
+                <p className="text-xs text-gray-400 mt-1">PNG, JPG, WebP supported</p>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div>
+                <label className="text-xs font-medium text-gray-600 block mb-1">Full Name</label>
+                <input
+                  value={profileName}
+                  onChange={(e) => setProfileName(e.target.value)}
+                  className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none"
+                />
+              </div>
+              <div>
+                <label className="text-xs font-medium text-gray-600 block mb-1">Phone</label>
+                <input
+                  value={profilePhone}
+                  onChange={(e) => setProfilePhone(e.target.value)}
+                  className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none"
+                />
+              </div>
+            </div>
+            <div className="flex gap-2 justify-end">
+              <Button variant="ghost" onClick={() => setEditingProfile(false)}><X size={14} /> Cancel</Button>
+              <Button onClick={handleSaveProfile}><Check size={14} /> Save</Button>
+            </div>
+          </div>
+        )}
+
+        {/* Inline: Edit Child Profile */}
+        {editingChild && (
+          <div className="mt-5 p-4 bg-blue-50 rounded-xl border border-blue-100 space-y-4">
+            <h4 className="font-semibold text-gray-800 text-sm">Edit {selectedChild.name}&apos;s Profile</h4>
+
+            {/* Child photo upload */}
+            <div className="flex items-center gap-4">
+              <div className="w-14 h-14 rounded-full bg-blue-100 overflow-hidden flex items-center justify-center font-bold text-blue-700 shrink-0">
+                {childPhoto ? (
+                  <img src={childPhoto} alt="Preview" className="w-full h-full object-cover" />
+                ) : childName.length >= 2 ? (
+                  childName.slice(0, 2).toUpperCase()
+                ) : (
+                  <span className="text-blue-400 text-2xl">?</span>
+                )}
+              </div>
+              <div>
+                <input
+                  type="file"
+                  accept="image/png,image/jpeg,image/webp,image/gif"
+                  ref={childPhotoRef}
+                  className="hidden"
+                  onChange={handleChildPhotoChange}
+                />
+                <Button variant="secondary" onClick={() => childPhotoRef.current?.click()}>
+                  <Camera size={14} /> Upload Photo
+                </Button>
+                <p className="text-xs text-gray-400 mt-1">PNG, JPG, WebP supported</p>
+              </div>
+            </div>
+
+            <div>
+              <label className="text-xs font-medium text-gray-600 block mb-1">Child&apos;s Name</label>
+              <input
+                value={childName}
+                onChange={(e) => setChildName(e.target.value)}
+                className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none"
+              />
+            </div>
+            <div className="flex gap-2 justify-end">
+              <Button variant="ghost" onClick={() => setEditingChild(false)}><X size={14} /> Cancel</Button>
+              <Button onClick={handleSaveChild}><Check size={14} /> Save</Button>
+            </div>
+          </div>
+        )}
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        <Card>
+      {/* Main widgets */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        {/* Today's Routine */}
+        <Card className="flex flex-col">
           <div className="p-4 border-b border-gray-100 flex items-center gap-2">
-            <BookOpen size={18} className="text-indigo-600" />
-            <h3 className="font-bold">Recent Activities</h3>
+            <Clock3 size={18} className="text-sky-600" />
+            <h3 className="font-bold text-lg">
+              Today&apos;s Routine{' '}
+              <span className="text-gray-500 text-sm font-normal ml-2">{formattedDate}</span>
+            </h3>
           </div>
-          <div className="p-4 space-y-4">
-            {recentActivities.length > 0 ? (
-              recentActivities.map((activity) => (
-                <div key={activity.id} className="flex gap-3">
-                  <div className="mt-1 w-2 h-2 rounded-full bg-indigo-500 flex-shrink-0" />
-                  <div>
-                    <p className="text-gray-800">{activity.text}</p>
-                    <span className="text-xs text-gray-400 mt-1 block capitalize">
-                      Mood: {activity.mood} | {activity.date}
-                    </span>
+          <div className="p-4 space-y-3 flex-1">
+            {todaysRoutines.length > 0 ? (
+              todaysRoutines.map((routine) => (
+                <div key={routine.id} className="grid grid-cols-[100px_minmax(0,1fr)] gap-4">
+                  <div className="flex flex-col justify-center text-sm font-semibold text-gray-700">
+                    <span>{formatTime(routine.startTime)}</span>
+                    <span className="text-gray-400">{formatTime(routine.endTime)}</span>
+                  </div>
+                  <div className="rounded-2xl border border-sky-200 bg-sky-100/80 px-5 py-4 shadow-sm">
+                    <p className="text-lg font-bold text-gray-900">{routine.title}</p>
+                    <p className="mt-1 text-sm text-gray-700">{routine.teacherName}</p>
                   </div>
                 </div>
               ))
             ) : (
-              <p className="text-gray-400 italic text-center py-4">No recent activities.</p>
+              <div className="flex-1 flex items-center justify-center py-8 text-center">
+                <div className="rounded-2xl border border-dashed border-gray-200 bg-gray-50 px-6 py-10 w-full text-center">
+                  <p className="font-semibold text-gray-700">No routines scheduled for today.</p>
+                </div>
+              </div>
             )}
           </div>
         </Card>
 
-        <Card>
+        {/* Notice Board */}
+        <Card className="flex flex-col">
           <div className="p-4 border-b border-gray-100 flex items-center gap-2">
-            <Bell size={18} className="text-yellow-600" />
-            <h3 className="font-bold">Notice Board</h3>
+            <Bell size={18} className="text-indigo-600" />
+            <h3 className="font-bold text-lg">Recent Announcements</h3>
           </div>
-          <div className="p-4 space-y-3">
-            {visibleAnnouncements.map((announcement) => (
-              <div key={announcement.id} className="pb-3 border-b border-gray-50 last:border-0 last:pb-0">
-                <p className="text-sm text-gray-800 font-medium">{announcement.text}</p>
-                <p className="text-xs text-gray-400 mt-1">
-                  {announcement.author} | {announcement.className ?? 'All Classes'} | {announcement.date}
-                </p>
+          <div className="p-4 space-y-4 flex-1">
+            {visibleAnnouncements.length > 0 ? (
+              visibleAnnouncements.map((announcement) => (
+                <div key={announcement.id} className="bg-gray-50 border border-gray-100 rounded-xl p-4">
+                  <div className="flex justify-between items-start gap-3 mb-2">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <Badge color={announcement.type === 'urgent' ? 'red' : announcement.type === 'event' ? 'green' : 'blue'}>
+                        {announcement.type}
+                      </Badge>
+                      <span className="text-xs text-gray-500 font-medium">{announcement.author}</span>
+                      <span className="text-xs text-gray-400">{announcement.className ?? 'All Classes'}</span>
+                    </div>
+                    <span className="text-xs text-gray-400 shrink-0">{announcement.date}</span>
+                  </div>
+                  <p className="text-sm text-gray-800">{announcement.text}</p>
+                </div>
+              ))
+            ) : (
+              <div className="flex-1 flex items-center justify-center">
+                <div className="rounded-2xl border border-dashed border-gray-200 bg-gray-50 px-6 py-10 w-full text-center">
+                  <p className="font-semibold text-gray-700">No announcements yet.</p>
+                </div>
               </div>
-            ))}
+            )}
           </div>
         </Card>
       </div>

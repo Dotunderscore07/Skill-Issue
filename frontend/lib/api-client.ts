@@ -74,6 +74,19 @@ export class AnnouncementApi {
       body: JSON.stringify({ text, type, author, classId: classId ?? null }),
     });
   }
+
+  static update(id: number, text: string, type: AnnouncementType, classId?: string) {
+    return request<Announcement>(`${BASE}/announcements/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify({ text, type, classId: classId ?? null }),
+    });
+  }
+
+  static delete(id: number) {
+    return request<{ deleted: boolean; id: number }>(`${BASE}/announcements/${id}`, {
+      method: 'DELETE',
+    });
+  }
 }
 
 export class ActivityApi {
@@ -172,12 +185,25 @@ export class StudentApi {
       body: JSON.stringify({ parentId }),
     });
   }
+
+  static delete(studentId: string) {
+    return request<{ deleted: boolean; id: string }>(`${BASE}/students/${studentId}`, {
+      method: 'DELETE',
+    });
+  }
 }
 
 export class UserApi {
   static getAll(role?: string) {
     const queryString = role ? `?role=${role}` : '';
     return request<User[]>(`${BASE}/users${queryString}`);
+  }
+
+  static updateProfile(id: string, payload: { name: string; phone: string; password?: string; avatar?: string }) {
+    return request<User>(`${BASE}/users/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(payload),
+    });
   }
 }
 
@@ -193,6 +219,12 @@ export class TeacherApi {
     return request<User>(`${BASE}/users/teachers/${id}`, {
       method: 'PUT',
       body: JSON.stringify(payload),
+    });
+  }
+
+  static delete(id: string) {
+    return request<{ deleted: boolean; id: string }>(`${BASE}/users/teachers/${id}`, {
+      method: 'DELETE',
     });
   }
 }
@@ -213,6 +245,12 @@ export class ClassApi {
     return request<Class>(`${BASE}/classes/${id}`, {
       method: 'PUT',
       body: JSON.stringify(payload),
+    });
+  }
+
+  static delete(id: string) {
+    return request<{ deleted: boolean; id: string }>(`${BASE}/classes/${id}`, {
+      method: 'DELETE',
     });
   }
 }

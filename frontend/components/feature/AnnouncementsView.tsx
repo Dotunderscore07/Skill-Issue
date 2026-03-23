@@ -2,6 +2,7 @@
 
 import React, { useState } from 'react';
 import { Card, Badge, Button } from '../ui';
+import { Trash, Edit } from 'lucide-react';
 import { User, Announcement, AnnouncementType } from '../../modules/shared/types';
 import { useAppContext } from '../../modules/shared/context/AppContext';
 
@@ -12,10 +13,19 @@ interface AnnouncementsViewProps {
 }
 
 export function AnnouncementsView({ user, announcements, onAdd }: AnnouncementsViewProps) {
-  const { selectedDate, setSelectedDate, selectedClass, classes } = useAppContext();
+  const { selectedDate, setSelectedDate, selectedClass, classes, updateAnnouncement, deleteAnnouncement } = useAppContext();
   const [text, setText] = useState('');
   const [type, setType] = useState<AnnouncementType>('info');
   const [targetClassId, setTargetClassId] = useState('');
+
+  const [editingId, setEditingId] = useState<number | null>(null);
+  const [editBuffer, setEditBuffer] = useState('');
+  const [editType, setEditType] = useState<AnnouncementType>('info');
+  const [editTargetClassId, setEditTargetClassId] = useState('');
+
+  React.useEffect(() => {
+    if (!targetClassId && selectedClass) setTargetClassId(selectedClass.id);
+  }, [selectedClass, targetClassId]);
 
   const today = new Date().toISOString().split('T')[0];
   const canPost = selectedDate === today;
@@ -23,7 +33,7 @@ export function AnnouncementsView({ user, announcements, onAdd }: AnnouncementsV
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!text) return;
-    const classId = user.role === 'teacher' ? selectedClass?.id : targetClassId || undefined;
+    const classId = targetClassId || undefined;
     await onAdd(text, type, user.name, classId);
     setText('');
   };
@@ -35,6 +45,7 @@ export function AnnouncementsView({ user, announcements, onAdd }: AnnouncementsV
           <h3 className="font-bold text-gray-900 mb-4">Post New Announcement</h3>
           <form onSubmit={handleSubmit} className="space-y-4">
             <textarea
+              required
               className="w-full p-3 border border-gray-200 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:outline-none"
               rows={3}
               placeholder={user.role === 'coordinator' ? 'What should all users know?' : 'What is happening in class?'}
@@ -52,20 +63,17 @@ export function AnnouncementsView({ user, announcements, onAdd }: AnnouncementsV
                   <option value="urgent">Urgent</option>
                   <option value="event">Event</option>
                 </select>
-                {user.role === 'coordinator' && (
+                {(user.role === 'coordinator' || user.role === 'teacher') && (
                   <select
                     value={targetClassId}
                     onChange={(e) => setTargetClassId(e.target.value)}
                     className="p-2 border border-gray-200 rounded-lg text-sm bg-white"
                   >
                     <option value="">All Classes</option>
-                    {classes.map((entry) => (
+                    {classes.filter(c => user.role === 'coordinator' || (user.classIds ?? []).includes(c.id)).map((entry) => (
                       <option key={entry.id} value={entry.id}>{entry.name}</option>
                     ))}
                   </select>
-                )}
-                {user.role === 'teacher' && selectedClass && (
-                  <span className="text-sm text-gray-500">Target Class: {selectedClass.name}</span>
                 )}
               </div>
               <Button type="submit">{user.role === 'coordinator' ? 'Post Announcement' : 'Post to Class'}</Button>
@@ -87,21 +95,78 @@ export function AnnouncementsView({ user, announcements, onAdd }: AnnouncementsV
         {announcements.filter((announcement) => announcement.date === selectedDate).length > 0 ? (
           announcements
             .filter((announcement) => announcement.date === selectedDate)
-            .map((announcement) => (
-              <Card key={announcement.id} className="p-5">
-                <div className="flex justify-between items-start mb-2">
-                  <div className="flex items-center gap-2">
-                    <Badge color={announcement.type === 'urgent' ? 'red' : announcement.type === 'event' ? 'green' : 'blue'}>
-                      {announcement.type.toUpperCase()}
-                    </Badge>
-                    <span className="text-xs text-gray-500 font-medium">{announcement.author}</span>
-                    <span className="text-xs text-gray-400">{announcement.className ?? 'All Classes'}</span>
+            .map((announcement) => {
+              if (editingId === announcement.id) {
+                return (
+                  <Card key={announcement.id} className="p-5 border-l-4 border-indigo-500">
+                    <form onSubmit={async (e) => {
+                      e.preventDefault();
+                      await updateAnnouncement(announcement.id, editBuffer, editType, editTargetClassId || undefined);
+                      setEditingId(null);
+                    }} className="space-y-4">
+                      <textarea
+                        className="w-full p-2 border border-gray-200 rounded focus:ring-2 focus:ring-indigo-500 outline-none block"
+                        rows={3}
+                        value={editBuffer}
+                        onChange={(e) => setEditBuffer(e.target.value)}
+                      />
+                      <div className="flex justify-between items-center">
+                        <div className="flex gap-2">
+                          <select value={editType} onChange={(e) => setEditType(e.target.value as AnnouncementType)} className="p-1.5 border border-gray-200 rounded text-sm bg-white">
+                            <option value="info">General Info</option>
+                            <option value="urgent">Urgent</option>
+                            <option value="event">Event</option>
+                          </select>
+                          <select value={editTargetClassId} onChange={(e) => setEditTargetClassId(e.target.value)} className="p-1.5 border border-gray-200 rounded text-sm bg-white">
+                            <option value="">All Classes</option>
+                            {classes.filter(c => user.role === 'coordinator' || (user.classIds ?? []).includes(c.id)).map(c => (
+                              <option key={c.id} value={c.id}>{c.name}</option>
+                            ))}
+                          </select>
+                        </div>
+                        <div className="flex gap-2">
+                          <Button type="button" onClick={() => setEditingId(null)} className="!bg-gray-100 !text-gray-700 hover:!bg-gray-200">Cancel</Button>
+                          <Button type="submit">Save</Button>
+                        </div>
+                      </div>
+                    </form>
+                  </Card>
+                );
+              }
+
+              const isAuthor = user.name === announcement.author || user.role === 'coordinator';
+
+              return (
+                <Card key={announcement.id} className="p-5">
+                  <div className="flex justify-between items-start mb-2">
+                    <div className="flex items-center gap-2">
+                      <Badge color={announcement.type === 'urgent' ? 'red' : announcement.type === 'event' ? 'green' : 'blue'}>
+                        {announcement.type.toUpperCase()}
+                      </Badge>
+                      <span className="text-xs text-gray-500 font-medium">{announcement.author}</span>
+                      <span className="text-xs text-gray-400">{announcement.className ?? 'All Classes'}</span>
+                    </div>
+                    <div className="flex gap-3 items-center">
+                      <span className="text-xs text-gray-400">{announcement.date}</span>
+                      {isAuthor && canPost && (
+                        <div className="flex gap-2">
+                          <button onClick={() => {
+                            setEditingId(announcement.id);
+                            setEditBuffer(announcement.text);
+                            setEditType(announcement.type);
+                            setEditTargetClassId(announcement.classId ?? '');
+                          }} className="text-gray-400 hover:text-indigo-600"><Edit size={16} /></button>
+                          <button onClick={() => {
+                            if (confirm('Delete announcement?')) deleteAnnouncement(announcement.id);
+                          }} className="text-gray-400 hover:text-red-600"><Trash size={16} /></button>
+                        </div>
+                      )}
+                    </div>
                   </div>
-                  <span className="text-xs text-gray-400">{announcement.date}</span>
-                </div>
-                <p className="text-gray-800 leading-relaxed">{announcement.text}</p>
-              </Card>
-            ))
+                  <p className="text-gray-800 leading-relaxed">{announcement.text}</p>
+                </Card>
+              );
+            })
         ) : (
           <div className="p-12 text-center text-gray-400 italic bg-white rounded-xl border border-dashed border-gray-200">
             No announcements for this date.

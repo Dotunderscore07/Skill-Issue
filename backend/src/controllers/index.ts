@@ -231,6 +231,53 @@ export class UserController {
     }
   }
 
+  static async updateProfile(req: ExpressRequest, res: ExpressResponse) {
+    try {
+      const { id } = req.params;
+      const userReq = req as unknown as AuthRequest;
+
+      // Ensure user can only update their own profile unless they are an admin
+      if (userReq.user.id !== id && userReq.user.role !== 'admin') {
+        return res.status(403).json({ success: false, data: null, error: 'Access denied' });
+      }
+
+      const { name, phone, password, avatar: avatarInput } = req.body as {
+        name: string;
+        phone: string;
+        password?: string;
+        avatar?: string;
+      };
+
+      const avatar = avatarInput || buildAvatar(name);
+
+      if (password) {
+        const salt = await bcrypt.genSalt(10);
+        const hashedPassword = await bcrypt.hash(password, salt);
+        await query(
+          'UPDATE users SET name = $1, phone = $2, avatar = $3, password = $4 WHERE id = $5',
+          [name, phone, avatar, hashedPassword, id]
+        );
+      } else {
+        await query(
+          'UPDATE users SET name = $1, phone = $2, avatar = $3 WHERE id = $4',
+          [name, phone, avatar, id]
+        );
+      }
+
+      const updated = await query(
+        `${selectUsersBase}
+         WHERE u.id = $1
+         GROUP BY u.id`,
+        [id]
+      );
+
+      res.json({ success: true, data: updated.rows[0] });
+    } catch (err) {
+      console.error(err);
+      res.status(500).json({ success: false, data: null, error: 'Internal server error' });
+    }
+  }
+
   static async updateTeacher(req: ExpressRequest, res: ExpressResponse) {
     try {
       const { id } = req.params;
@@ -268,6 +315,25 @@ export class UserController {
       );
 
       res.json({ success: true, data: updated.rows[0] });
+    } catch (err) {
+      console.error(err);
+      res.status(500).json({ success: false, data: null, error: 'Internal server error' });
+    }
+  }
+
+  static async deleteTeacher(req: ExpressRequest, res: ExpressResponse) {
+    try {
+      const { id } = req.params;
+      
+      const teacher = await query('SELECT id FROM users WHERE id = $1 AND role = $2', [id, 'teacher']);
+      if (teacher.rows.length === 0) {
+        return res.status(404).json({ success: false, data: null, error: 'Teacher not found' });
+      }
+
+      await query('DELETE FROM messages WHERE "fromId" = $1 OR "toId" = $1', [id]);
+      await query('DELETE FROM users WHERE id = $1', [id]);
+
+      res.json({ success: true, data: { deleted: true, id } });
     } catch (err) {
       console.error(err);
       res.status(500).json({ success: false, data: null, error: 'Internal server error' });
@@ -365,6 +431,7 @@ export class StudentController {
   static async update(req: ExpressRequest, res: ExpressResponse) {
     try {
       const { studentId } = req.params;
+      const userReq = req as unknown as AuthRequest;
       const { name, dob, photo = '', parentId, classId } = req.body as {
         name: string;
         dob: string;
@@ -377,19 +444,43 @@ export class StudentController {
         return res.status(400).json({ success: false, data: null, error: 'Name, date of birth, and class are required.' });
       }
 
-      const classExists = await query('SELECT 1 FROM classes WHERE id = $1 LIMIT 1', [classId]);
-      if (classExists.rows.length === 0) {
-        return res.status(400).json({ success: false, data: null, error: 'Selected class does not exist.' });
-      }
+      // Permissions check
+      if (userReq.user.role === 'parent') {
+        const relationship = await query(
+          'SELECT 1 FROM parent_students WHERE parent_id = $1 AND student_id = $2',
+          [userReq.user.id, studentId]
+        );
+        if (relationship.rows.length === 0) {
+          return res.status(403).json({ success: false, data: null, error: 'Forbidden: You are not the parent of this student.' });
+        }
 
-      await query(
-        'UPDATE students SET name = $1, dob = $2, photo = $3, "classId" = $4 WHERE id = $5',
-        [name, dob, photo, classId, studentId]
-      );
+        // For parents, we ignore classId and parentId updates, and use existing values
+        const currentStudent = await query('SELECT dob, "classId" FROM students WHERE id = $1', [studentId]);
+        if (currentStudent.rows.length === 0) {
+          return res.status(404).json({ success: false, data: null, error: 'Student not found.' });
+        }
+        
+        // Parent only allowed to update name and photo. dob and classId are kept current.
+        await query(
+          'UPDATE students SET name = $1, photo = $2 WHERE id = $3',
+          [name, photo, studentId]
+        );
+      } else {
+        // Coordinator logic
+        const classExists = await query('SELECT 1 FROM classes WHERE id = $1 LIMIT 1', [classId]);
+        if (classExists.rows.length === 0) {
+          return res.status(400).json({ success: false, data: null, error: 'Selected class does not exist.' });
+        }
 
-      await query('DELETE FROM parent_students WHERE student_id = $1', [studentId]);
-      if (parentId) {
-        await query('INSERT INTO parent_students (parent_id, student_id) VALUES ($1, $2) ON CONFLICT DO NOTHING', [parentId, studentId]);
+        await query(
+          'UPDATE students SET name = $1, dob = $2, photo = $3, "classId" = $4 WHERE id = $5',
+          [name, dob, photo, classId, studentId]
+        );
+
+        await query('DELETE FROM parent_students WHERE student_id = $1', [studentId]);
+        if (parentId) {
+          await query('INSERT INTO parent_students (parent_id, student_id) VALUES ($1, $2) ON CONFLICT DO NOTHING', [parentId, studentId]);
+        }
       }
 
       const updated = await query(
@@ -435,6 +526,26 @@ export class StudentController {
       res.status(500).json({ success: false, data: null, error: 'Internal server error' });
     }
   }
+
+  static async delete(req: ExpressRequest, res: ExpressResponse) {
+    try {
+      const { studentId } = req.params;
+      
+      const student = await query('SELECT id FROM students WHERE id = $1', [studentId]);
+      if (student.rows.length === 0) {
+        return res.status(404).json({ success: false, data: null, error: 'Student not found' });
+      }
+
+      await query('DELETE FROM activities WHERE "studentId" = $1', [studentId]);
+      await query('DELETE FROM attendance_records WHERE "studentId" = $1', [studentId]);
+      await query('DELETE FROM students WHERE id = $1', [studentId]);
+
+      res.json({ success: true, data: { deleted: true, id: studentId } });
+    } catch (err) {
+      console.error(err);
+      res.status(500).json({ success: false, data: null, error: 'Internal server error' });
+    }
+  }
 }
 
 export class AnnouncementController {
@@ -461,6 +572,42 @@ export class AnnouncementController {
       );
       const created = await query(`${selectAnnouncementsBase} WHERE a.id = $1`, [result.rows[0].id]);
       res.status(201).json({ success: true, data: created.rows[0] });
+    } catch (err) {
+      res.status(500).json({ success: false, data: null, error: 'Internal server error' });
+    }
+  }
+
+  static async update(req: AuthRequest, res: ExpressResponse) {
+    try {
+      const { id } = req.params;
+      const { text, type, classId = null } = req.body;
+      
+      const existing = await query('SELECT author FROM announcements WHERE id = $1', [id]);
+      if (existing.rows.length === 0) {
+        return res.status(404).json({ success: false, data: null, error: 'Announcement not found' });
+      }
+
+      const result = await query(
+        `UPDATE announcements SET text = $1, type = $2, "classId" = $3 WHERE id = $4 RETURNING *`,
+        [text, type, classId, id]
+      );
+      
+      const updated = await query(`${selectAnnouncementsBase} WHERE a.id = $1`, [id]);
+      res.json({ success: true, data: updated.rows[0] });
+    } catch (err) {
+      res.status(500).json({ success: false, data: null, error: 'Internal server error' });
+    }
+  }
+
+  static async delete(req: AuthRequest, res: ExpressResponse) {
+    try {
+      const { id } = req.params;
+      const result = await query('DELETE FROM announcements WHERE id = $1 RETURNING *', [id]);
+      
+      if (result.rows.length === 0) {
+        return res.status(404).json({ success: false, data: null, error: 'Announcement not found' });
+      }
+      res.json({ success: true, data: { deleted: true, id: Number(id) } });
     } catch (err) {
       res.status(500).json({ success: false, data: null, error: 'Internal server error' });
     }
@@ -723,6 +870,24 @@ export class ClassController {
         [id]
       );
       res.json({ success: true, data: updated.rows[0] });
+    } catch (err) {
+      console.error(err);
+      res.status(500).json({ success: false, data: null, error: 'Internal server error' });
+    }
+  }
+
+  static async delete(req: ExpressRequest, res: ExpressResponse) {
+    try {
+      const { id } = req.params;
+
+      const cls = await query('SELECT id FROM classes WHERE id = $1', [id]);
+      if (cls.rows.length === 0) {
+        return res.status(404).json({ success: false, data: null, error: 'Class not found' });
+      }
+
+      await query('DELETE FROM classes WHERE id = $1', [id]);
+
+      res.json({ success: true, data: { deleted: true, id } });
     } catch (err) {
       console.error(err);
       res.status(500).json({ success: false, data: null, error: 'Internal server error' });

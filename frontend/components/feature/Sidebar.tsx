@@ -55,7 +55,6 @@ export function Sidebar({ user, view, onViewChange, onLogout }: SidebarProps) {
           { id: 'classes' as ViewType, icon: Shapes, label: 'Classes' },
           { id: 'routines' as ViewType, icon: Clock3, label: 'Routines' },
           { id: 'announcements' as ViewType, icon: Bell, label: 'Announcements' },
-          { id: 'messages' as ViewType, icon: MessageCircle, label: 'Messages' },
         ]
       : [
           { id: 'dashboard' as ViewType, icon: Home, label: 'Dashboard' },
@@ -87,8 +86,12 @@ export function Sidebar({ user, view, onViewChange, onLogout }: SidebarProps) {
 
       <div className="p-4 border-t border-gray-100">
         <div className="flex items-center gap-3 mb-4 px-2">
-          <span className="w-10 h-10 rounded-full bg-indigo-100 text-indigo-700 font-bold flex items-center justify-center">
-            {user.avatar}
+          <span className="w-10 h-10 rounded-full bg-indigo-100 text-indigo-700 font-bold flex items-center justify-center overflow-hidden shrink-0">
+            {user.avatar?.startsWith('data:') ? (
+              <img src={user.avatar} alt={user.name} className="w-full h-full object-cover" />
+            ) : (
+              user.avatar
+            )}
           </span>
           <div className="flex-1 min-w-0">
             <p className="text-sm font-bold text-gray-900 truncate">{user.name}</p>

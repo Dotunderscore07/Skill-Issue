@@ -98,6 +98,8 @@ interface AppContextValue {
   setSelectedClass: (cls: Class) => void;
   setSelectedDate: (date: string) => void;
   addAnnouncement: (text: string, type: AnnouncementType, author: string, classId?: string) => Promise<void>;
+  updateAnnouncement: (id: number, text: string, type: AnnouncementType, classId?: string) => Promise<void>;
+  deleteAnnouncement: (id: number) => Promise<void>;
   addActivity: (studentId: string, text: string, mood: MoodType) => Promise<void>;
   editActivity: (id: number, text: string, mood: MoodType) => Promise<void>;
   deleteActivity: (id: number) => Promise<void>;
@@ -106,6 +108,7 @@ interface AppContextValue {
   sendBroadcastMessage: (text: string, image?: string) => Promise<void>;
   createTeacher: (payload: TeacherPayload) => Promise<void>;
   updateTeacher: (id: string, payload: UpdateTeacherPayload) => Promise<void>;
+  updateUserProfile: (id: string, payload: { name: string; phone: string; password?: string; avatar?: string }) => Promise<void>;
   createStudent: (payload: StudentPayload) => Promise<void>;
   updateStudent: (id: string, payload: StudentPayload) => Promise<void>;
   createClass: (payload: ClassPayload) => Promise<void>;
@@ -113,6 +116,9 @@ interface AppContextValue {
   createRoutine: (payload: RoutinePayload) => Promise<void>;
   updateRoutine: (id: number, payload: RoutinePayload) => Promise<void>;
   deleteRoutine: (id: number) => Promise<void>;
+  deleteTeacher: (id: string) => Promise<void>;
+  deleteStudent: (id: string) => Promise<void>;
+  deleteClass: (id: string) => Promise<void>;
 }
 
 const AppContext = createContext<AppContextValue | null>(null);
@@ -324,6 +330,32 @@ export function AppProvider({ children }: { children: ReactNode }) {
     );
   };
 
+  const updateAnnouncement = async (id: number, text: string, type: AnnouncementType, classId?: string) => {
+    const updated = await AnnouncementApi.update(id, text, type, classId);
+    setAnnouncements((prev) => prev.map((a) => (a.id === id ? updated : a)));
+    setCoordinatorSummary((prev) =>
+      prev
+        ? {
+            ...prev,
+            announcements: prev.announcements.map((a) => (a.id === id ? updated : a)),
+          }
+        : prev
+    );
+  };
+
+  const deleteAnnouncement = async (id: number) => {
+    await AnnouncementApi.delete(id);
+    setAnnouncements((prev) => prev.filter((a) => a.id !== id));
+    setCoordinatorSummary((prev) =>
+      prev
+        ? {
+            ...prev,
+            announcements: prev.announcements.filter((a) => a.id !== id),
+          }
+        : prev
+    );
+  };
+
   const addActivity = async (studentId: string, text: string, mood: MoodType) => {
     const newActivity = await ActivityApi.create(studentId, text, mood);
     setActivities((prev) => [newActivity, ...prev]);
@@ -370,6 +402,14 @@ export function AppProvider({ children }: { children: ReactNode }) {
     syncTeacherAssignments(updated.id, updated.classIds ?? payload.classIds);
   };
 
+  const updateUserProfile = async (id: string, payload: { name: string; phone: string; password?: string; avatar?: string }) => {
+    const updated = await UserApi.updateProfile(id, payload);
+    setUser(updated);
+    if (updated.role === 'teacher' || updated.role === 'coordinator') {
+      setAllUsers((prev) => prev.map((entry) => (entry.id === id ? updated : entry)));
+    }
+  };
+
   const createStudent = async (payload: StudentPayload) => {
     const created = await StudentApi.create(payload);
     setStudents((prev) => [...prev, created].sort((a, b) => a.name.localeCompare(b.name)));
@@ -379,6 +419,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const updateStudent = async (id: string, payload: StudentPayload) => {
     const updated = await StudentApi.update(id, payload);
     setStudents((prev) => prev.map((entry) => (entry.id === id ? updated : entry)));
+    setSelectedChild((prev) => (prev?.id === id ? updated : prev));
   };
 
   const createClass = async (payload: ClassPayload) => {
@@ -397,6 +438,23 @@ export function AppProvider({ children }: { children: ReactNode }) {
       syncTeacherClassIds(Object.fromEntries(nextClasses.map((entry) => [entry.id, entry.teacherIds ?? []])));
       return nextClasses;
     });
+  };
+
+  const deleteTeacher = async (id: string) => {
+    await TeacherApi.delete(id);
+    setAllUsers((prev) => prev.filter((entry) => entry.id !== id));
+    setCoordinatorSummary((prev) => (prev ? { ...prev, totalTeachers: Math.max(0, prev.totalTeachers - 1) } : prev));
+  };
+
+  const deleteStudent = async (id: string) => {
+    await StudentApi.delete(id);
+    setStudents((prev) => prev.filter((entry) => entry.id !== id));
+    setCoordinatorSummary((prev) => (prev ? { ...prev, totalChildren: Math.max(0, prev.totalChildren - 1) } : prev));
+  };
+
+  const deleteClass = async (id: string) => {
+    await ClassApi.delete(id);
+    setClasses((prev) => prev.filter((entry) => entry.id !== id));
   };
 
   const createRoutine = async (payload: RoutinePayload) => {
@@ -449,6 +507,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
         setSelectedClass,
         setSelectedDate,
         addAnnouncement,
+        updateAnnouncement,
+        deleteAnnouncement,
         addActivity,
         editActivity,
         deleteActivity,
@@ -457,6 +517,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
         sendBroadcastMessage,
         createTeacher,
         updateTeacher,
+        updateUserProfile,
         createStudent,
         updateStudent,
         createClass,
@@ -464,6 +525,9 @@ export function AppProvider({ children }: { children: ReactNode }) {
         createRoutine,
         updateRoutine,
         deleteRoutine,
+        deleteTeacher,
+        deleteStudent,
+        deleteClass,
       }}
     >
       {children}

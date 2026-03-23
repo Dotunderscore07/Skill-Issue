@@ -7,7 +7,7 @@ import { Class } from '../../modules/shared/types';
 import { useAppContext } from '../../modules/shared/context/AppContext';
 
 export function ClassesView() {
-  const { classes, allUsers, createClass, updateClass } = useAppContext();
+  const { classes, allUsers, createClass, updateClass, deleteClass } = useAppContext();
   const teachers = allUsers.filter((user) => user.role === 'teacher');
   const [editingClass, setEditingClass] = useState<Class | null>(null);
   const [form, setForm] = useState({ name: '', teacherIds: [] as string[] });
@@ -49,24 +49,43 @@ export function ClassesView() {
             <h3 className="text-lg font-bold text-gray-900">{editingClass ? 'Edit Class' : 'Create Class'}</h3>
             <p className="text-sm text-gray-500 mt-1">Classes stay linked to teachers through the existing join-table pattern.</p>
           </div>
-          {editingClass && (
-            <Button variant="secondary" onClick={resetForm}>Go Back</Button>
-          )}
         </div>
         <form onSubmit={handleSubmit} className="space-y-4">
-          <input value={form.name} onChange={(e) => setForm((current) => ({ ...current, name: e.target.value }))} placeholder="Class name" className="w-full px-4 py-2 border border-gray-200 rounded-xl" />
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
-            {teachers.map((teacher) => (
-              <label key={teacher.id} className="flex items-center gap-2 border border-gray-200 rounded-xl px-3 py-2 bg-gray-50">
-                <input type="checkbox" checked={form.teacherIds.includes(teacher.id)} onChange={() => toggleTeacher(teacher.id)} />
-                <span className="text-sm text-gray-700">{teacher.name}</span>
-              </label>
-            ))}
+          <div className="space-y-2">
+            <label className="text-sm font-medium text-gray-700">Class Name <span className="text-red-500">*</span></label>
+            <input required value={form.name} onChange={(e) => setForm((current) => ({ ...current, name: e.target.value }))} placeholder="Enter a descriptive class name (e.g. Toddlers, Pre-K)" className="w-full px-4 py-2 border border-gray-200 rounded-xl focus:ring-2 focus:ring-indigo-500 outline-none" />
           </div>
-          <Button type="submit">
-            <Plus size={18} />
-            {editingClass ? 'Save Class' : 'Create Class'}
-          </Button>
+          <div className="space-y-2">
+            <p className="text-sm font-medium text-gray-700">Assigned Teachers</p>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+              {teachers.map((teacher) => (
+                <label key={teacher.id} className="flex items-center gap-2 border border-gray-200 rounded-xl px-3 py-2 bg-gray-50 cursor-pointer hover:bg-gray-100 transition-colors">
+                  <input type="checkbox" checked={form.teacherIds.includes(teacher.id)} onChange={() => toggleTeacher(teacher.id)} className="w-4 h-4 text-indigo-600 focus:ring-indigo-500 border-gray-300 rounded" />
+                  <span className="text-sm text-gray-700">{teacher.name}</span>
+                </label>
+              ))}
+            </div>
+          </div>
+          <div className="flex justify-end gap-3 mt-4">
+            {editingClass && (
+              <>
+                <Button type="button" variant="danger" onClick={async () => {
+                  if (confirm('Are you sure you want to delete this class? This will delete all routines, assigned teachers, and unassign enrolled children!')) {
+                    await deleteClass(editingClass.id);
+                    resetForm();
+                  }
+                }}>
+                  Delete Class
+                </Button>
+                <Button type="button" variant="secondary" onClick={resetForm}>
+                  Go Back
+                </Button>
+              </>
+            )}
+            <Button type="submit">
+              {editingClass ? 'Save Class' : 'Create Class'}
+            </Button>
+          </div>
         </form>
       </Card>
 

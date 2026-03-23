@@ -241,13 +241,14 @@ export class UserController {
         return res.status(403).json({ success: false, data: null, error: 'Access denied' });
       }
 
-      const { name, phone, password } = req.body as {
+      const { name, phone, password, avatar: avatarInput } = req.body as {
         name: string;
         phone: string;
         password?: string;
+        avatar?: string;
       };
 
-      const avatar = buildAvatar(name);
+      const avatar = avatarInput || buildAvatar(name);
 
       if (password) {
         const salt = await bcrypt.genSalt(10);
@@ -430,6 +431,7 @@ export class StudentController {
   static async update(req: ExpressRequest, res: ExpressResponse) {
     try {
       const { studentId } = req.params;
+      const userReq = req as unknown as AuthRequest;
       const { name, dob, photo = '', parentId, classId } = req.body as {
         name: string;
         dob: string;
@@ -442,19 +444,43 @@ export class StudentController {
         return res.status(400).json({ success: false, data: null, error: 'Name, date of birth, and class are required.' });
       }
 
-      const classExists = await query('SELECT 1 FROM classes WHERE id = $1 LIMIT 1', [classId]);
-      if (classExists.rows.length === 0) {
-        return res.status(400).json({ success: false, data: null, error: 'Selected class does not exist.' });
-      }
+      // Permissions check
+      if (userReq.user.role === 'parent') {
+        const relationship = await query(
+          'SELECT 1 FROM parent_students WHERE parent_id = $1 AND student_id = $2',
+          [userReq.user.id, studentId]
+        );
+        if (relationship.rows.length === 0) {
+          return res.status(403).json({ success: false, data: null, error: 'Forbidden: You are not the parent of this student.' });
+        }
 
-      await query(
-        'UPDATE students SET name = $1, dob = $2, photo = $3, "classId" = $4 WHERE id = $5',
-        [name, dob, photo, classId, studentId]
-      );
+        // For parents, we ignore classId and parentId updates, and use existing values
+        const currentStudent = await query('SELECT dob, "classId" FROM students WHERE id = $1', [studentId]);
+        if (currentStudent.rows.length === 0) {
+          return res.status(404).json({ success: false, data: null, error: 'Student not found.' });
+        }
+        
+        // Parent only allowed to update name and photo. dob and classId are kept current.
+        await query(
+          'UPDATE students SET name = $1, photo = $2 WHERE id = $3',
+          [name, photo, studentId]
+        );
+      } else {
+        // Coordinator logic
+        const classExists = await query('SELECT 1 FROM classes WHERE id = $1 LIMIT 1', [classId]);
+        if (classExists.rows.length === 0) {
+          return res.status(400).json({ success: false, data: null, error: 'Selected class does not exist.' });
+        }
 
-      await query('DELETE FROM parent_students WHERE student_id = $1', [studentId]);
-      if (parentId) {
-        await query('INSERT INTO parent_students (parent_id, student_id) VALUES ($1, $2) ON CONFLICT DO NOTHING', [parentId, studentId]);
+        await query(
+          'UPDATE students SET name = $1, dob = $2, photo = $3, "classId" = $4 WHERE id = $5',
+          [name, dob, photo, classId, studentId]
+        );
+
+        await query('DELETE FROM parent_students WHERE student_id = $1', [studentId]);
+        if (parentId) {
+          await query('INSERT INTO parent_students (parent_id, student_id) VALUES ($1, $2) ON CONFLICT DO NOTHING', [parentId, studentId]);
+        }
       }
 
       const updated = await query(

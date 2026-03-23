@@ -26,6 +26,7 @@ export function Button({
 
   return (
     <button
+      type="button"
       onClick={onClick}
       className={`${baseStyle} ${variants[variant]} ${className}`}
       {...props}

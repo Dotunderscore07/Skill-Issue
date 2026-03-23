@@ -56,8 +56,10 @@ export const initDb = async () => {
         phone VARCHAR(20) UNIQUE NOT NULL,
         role VARCHAR(50) NOT NULL,
         password VARCHAR(255) NOT NULL,
-        avatar VARCHAR(10) NOT NULL DEFAULT ''
+        avatar TEXT NOT NULL DEFAULT ''
       );
+      
+      ALTER TABLE users ALTER COLUMN avatar TYPE TEXT;
 
       CREATE TABLE IF NOT EXISTS classes (
         id VARCHAR(50) PRIMARY KEY,

@@ -1,5 +1,6 @@
 'use client';
 
+import React from 'react';
 import { CheckCircle, Clock, XCircle } from 'lucide-react';
 import { Card, Badge, Button } from '../ui';
 import { User, AttendanceRecord, AttendanceStatus, Student } from '../../modules/shared/types';
@@ -10,6 +11,16 @@ interface AttendanceViewProps {
   attendance: AttendanceRecord[];
   onUpdateAttendance: (studentId: string, status: AttendanceStatus, date: string) => Promise<void>;
 }
+
+// Month names for the custom picker
+const MONTHS = [
+  'January', 'February', 'March', 'April', 'May', 'June',
+  'July', 'August', 'September', 'October', 'November', 'December',
+];
+
+// Generate a range of years around today
+const currentYear = new Date().getFullYear();
+const YEARS = Array.from({ length: 5 }, (_, i) => currentYear - 2 + i);
 
 export function AttendanceView({ user, attendance, onUpdateAttendance }: AttendanceViewProps) {
   const { 
@@ -44,12 +55,27 @@ export function AttendanceView({ user, attendance, onUpdateAttendance }: Attenda
       .filter((a) => a.studentId === myStudent.id)
       .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
 
+    // Parse month/year from selectedDate
+    const selectedYear = parseInt(selectedDate.substring(0, 4), 10);
+    const selectedMonth = parseInt(selectedDate.substring(5, 7), 10) - 1; // 0-indexed
+
     const recordsForPeriod = myAttendance.filter(a => a.date.startsWith(selectedDate.substring(0, 7)));
     const stats = {
       present: recordsForPeriod.filter(r => r.status === 'present').length,
       late: recordsForPeriod.filter(r => r.status === 'late').length,
       absent: recordsForPeriod.filter(r => r.status === 'absent').length,
       total: recordsForPeriod.length
+    };
+
+    const handleMonthChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+      const month = String(parseInt(e.target.value) + 1).padStart(2, '0');
+      const year = String(selectedYear);
+      setSelectedDate(`${year}-${month}-01`);
+    };
+
+    const handleYearChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+      const month = String(selectedMonth + 1).padStart(2, '0');
+      setSelectedDate(`${e.target.value}-${month}-01`);
     };
 
     return (
@@ -59,12 +85,27 @@ export function AttendanceView({ user, attendance, onUpdateAttendance }: Attenda
             <h2 className="text-2xl font-bold text-gray-900">Attendance History</h2>
             <p className="text-gray-500 text-sm">{myStudent.name}&apos;s attendance record</p>
           </div>
-          <input
-            type="month"
-            className="p-2 border rounded-lg bg-white shadow-sm focus:ring-2 focus:ring-indigo-500 outline-none"
-            value={selectedDate.substring(0, 7)}
-            onChange={(e) => setSelectedDate(`${e.target.value}-01`)}
-          />
+          {/* Custom month + year picker matching system style */}
+          <div className="flex items-center gap-2">
+            <select
+              className="bg-gray-50 border border-gray-200 text-gray-700 px-3 py-2 rounded-lg text-sm focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500"
+              value={selectedMonth}
+              onChange={handleMonthChange}
+            >
+              {MONTHS.map((name, idx) => (
+                <option key={idx} value={idx}>{name}</option>
+              ))}
+            </select>
+            <select
+              className="bg-gray-50 border border-gray-200 text-gray-700 px-3 py-2 rounded-lg text-sm focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500"
+              value={selectedYear}
+              onChange={handleYearChange}
+            >
+              {YEARS.map((y) => (
+                <option key={y} value={y}>{y}</option>
+              ))}
+            </select>
+          </div>
         </div>
 
         {/* Summary Stats */}
@@ -137,7 +178,7 @@ export function AttendanceView({ user, attendance, onUpdateAttendance }: Attenda
               </span>
             ) : isFuture ? (
               <span className="flex items-center gap-1 text-blue-600 font-medium">
-                Future Registry -Read-Only
+                Future Registry - Read-Only
               </span>
             ) : (
               <span className="text-green-600 font-medium">Marking attendance for Today</span>
@@ -148,7 +189,7 @@ export function AttendanceView({ user, attendance, onUpdateAttendance }: Attenda
           {selectedClass && <Badge color="indigo">{selectedClass.name}</Badge>}
           <input 
             type="date"
-            className="p-2 border rounded-lg bg-white shadow-sm focus:ring-2 focus:ring-indigo-500 outline-none"
+            className="bg-gray-50 border border-gray-200 text-gray-700 px-3 py-2 rounded-lg text-sm focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500"
             value={selectedDate}
             onChange={(e) => setSelectedDate(e.target.value)}
           />
@@ -176,7 +217,9 @@ export function AttendanceView({ user, attendance, onUpdateAttendance }: Attenda
                     {student.photo ? (
                       <img src={student.photo} alt={student.name} className="w-8 h-8 rounded-full object-cover" />
                     ) : (
-                      <span className="text-xl">👶</span>
+                      <div className="w-8 h-8 rounded-full bg-indigo-100 flex items-center justify-center text-indigo-700 text-xs font-semibold shrink-0">
+                        {student.name.slice(0, 2).toUpperCase()}
+                      </div>
                     )}
                     <span className="font-medium text-gray-900">{student.name}</span>
                   </td>

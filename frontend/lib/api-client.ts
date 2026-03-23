@@ -199,7 +199,7 @@ export class UserApi {
     return request<User[]>(`${BASE}/users${queryString}`);
   }
 
-  static updateProfile(id: string, payload: { name: string; phone: string; password?: string }) {
+  static updateProfile(id: string, payload: { name: string; phone: string; password?: string; avatar?: string }) {
     return request<User>(`${BASE}/users/${id}`, {
       method: 'PUT',
       body: JSON.stringify(payload),

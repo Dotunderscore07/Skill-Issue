@@ -13,7 +13,8 @@ app.use(cors({
   origin: 'http://localhost:3000',
   credentials: true
 }));
-app.use(express.json());
+app.use(express.json({ limit: '50mb' }));
+app.use(express.urlencoded({ extended: true, limit: '50mb' }));
 app.use(cookieParser());
 
 const router = Router();
@@ -47,7 +48,7 @@ router.delete('/routines/:id', auth, authorizeRole('coordinator'), RoutineContro
 // Students
 router.get('/students', auth, StudentController.getAll);
 router.post('/students', auth, authorizeRole('coordinator'), StudentController.create);
-router.put('/students/:studentId', auth, authorizeRole('coordinator'), StudentController.update);
+router.put('/students/:studentId', auth, authorizeRole('coordinator', 'parent'), StudentController.update);
 router.put('/students/:studentId/link', auth, authorizeRole('teacher', 'coordinator', 'admin'), StudentController.linkParent);
 router.delete('/students/:studentId', auth, authorizeRole('coordinator'), StudentController.delete);
 

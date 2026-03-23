@@ -40,7 +40,7 @@ export function ParentDashboard({ user, announcements }: ParentDashboardProps) {
   // Parent profile edit state
   const [profileName, setProfileName] = useState(user.name);
   const [profilePhone, setProfilePhone] = useState(user.phone ?? '');
-  const [profilePhoto, setProfilePhoto] = useState(user.avatar ?? '');
+  const [profilePhoto, setProfilePhoto] = useState('');
   const parentPhotoRef = useRef<HTMLInputElement>(null);
 
   // Child profile edit state
@@ -56,6 +56,11 @@ export function ParentDashboard({ user, announcements }: ParentDashboardProps) {
 
   const formatTime = (value: string) =>
     new Date(`2000-01-01T${value}:00`).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+
+  // Close edit form when switching children
+  React.useEffect(() => {
+    setEditingChild(false);
+  }, [selectedChild?.id]);
 
   const readFile = (file: File): Promise<string> =>
     new Promise((resolve) => {
@@ -79,7 +84,13 @@ export function ParentDashboard({ user, announcements }: ParentDashboardProps) {
   };
 
   const handleSaveProfile = async () => {
-    await updateUserProfile(user.id, { name: profileName, phone: profilePhone });
+    const payload: { name: string; phone: string; avatar?: string } = {
+      name: profileName,
+      phone: profilePhone,
+    };
+    // Only send photo if a new one was picked
+    if (profilePhoto) payload.avatar = profilePhoto;
+    await updateUserProfile(user.id, payload);
     setEditingProfile(false);
   };
 
@@ -88,7 +99,7 @@ export function ParentDashboard({ user, announcements }: ParentDashboardProps) {
     await updateStudent(selectedChild.id, {
       name: childName,
       dob: selectedChild.dob,
-      photo: childPhoto,
+      photo: childPhoto || selectedChild.photo,
       parentId: selectedChild.parentId,
       classId: selectedChild.classId,
     });
@@ -114,6 +125,10 @@ export function ParentDashboard({ user, announcements }: ParentDashboardProps) {
   const visibleAnnouncements = announcements
     .filter((a) => !a.classId || a.classId === selectedChild.classId)
     .slice(0, 5);
+
+  // Current avatar display
+  const currentAvatar = user.avatar;
+  const parentAvatarPreview = profilePhoto || (currentAvatar?.startsWith('data:') ? currentAvatar : '');
 
   return (
     <div className="space-y-6">
@@ -143,7 +158,7 @@ export function ParentDashboard({ user, announcements }: ParentDashboardProps) {
         <div className="flex items-center justify-between flex-wrap gap-4">
           <div className="flex items-center gap-4">
             {/* Child avatar */}
-            <div className="w-16 h-16 bg-blue-100 rounded-full flex items-center justify-center text-xl shadow-inner font-bold text-blue-700 overflow-hidden">
+            <div className="w-16 h-16 bg-blue-100 rounded-full flex items-center justify-center text-xl shadow-inner font-bold text-blue-700 overflow-hidden shrink-0">
               {selectedChild.photo ? (
                 <img src={selectedChild.photo} alt={selectedChild.name} className="w-full h-full object-cover" />
               ) : (
@@ -156,6 +171,7 @@ export function ParentDashboard({ user, announcements }: ParentDashboardProps) {
               {childClass && <p className="text-sm text-gray-500 mt-0.5">{childClass.name}</p>}
             </div>
           </div>
+          {/* Edit buttons – consistent with system UI (secondary variant, pencil icon) */}
           <div className="flex gap-2 flex-wrap">
             <Button
               variant="secondary"
@@ -191,10 +207,10 @@ export function ParentDashboard({ user, announcements }: ParentDashboardProps) {
             {/* Profile photo upload */}
             <div className="flex items-center gap-4">
               <div className="w-14 h-14 rounded-full bg-indigo-100 overflow-hidden flex items-center justify-center font-bold text-indigo-700 shrink-0">
-                {profilePhoto ? (
-                  <img src={profilePhoto} alt="Preview" className="w-full h-full object-cover" />
+                {parentAvatarPreview ? (
+                  <img src={parentAvatarPreview} alt="Preview" className="w-full h-full object-cover" />
                 ) : (
-                  user.avatar ?? user.name.slice(0, 2).toUpperCase()
+                  <span>{currentAvatar?.startsWith('data:') ? '' : currentAvatar}</span>
                 )}
               </div>
               <div>
@@ -249,7 +265,9 @@ export function ParentDashboard({ user, announcements }: ParentDashboardProps) {
                   <img src={childPhoto} alt="Preview" className="w-full h-full object-cover" />
                 ) : childName.length >= 2 ? (
                   childName.slice(0, 2).toUpperCase()
-                ) : '👶'}
+                ) : (
+                  <span className="text-blue-400 text-2xl">?</span>
+                )}
               </div>
               <div>
                 <input
@@ -296,21 +314,22 @@ export function ParentDashboard({ user, announcements }: ParentDashboardProps) {
           <div className="p-4 space-y-3 flex-1">
             {todaysRoutines.length > 0 ? (
               todaysRoutines.map((routine) => (
-                <div key={routine.id} className="flex items-center gap-3 p-3 rounded-lg bg-sky-50 border border-sky-100">
-                  <div className="text-xs font-bold text-sky-600 w-20 shrink-0">
-                    {formatTime(routine.startTime)}
-                    <br />
-                    <span className="text-sky-400">{formatTime(routine.endTime)}</span>
+                <div key={routine.id} className="grid grid-cols-[100px_minmax(0,1fr)] gap-4">
+                  <div className="flex flex-col justify-center text-sm font-semibold text-gray-700">
+                    <span>{formatTime(routine.startTime)}</span>
+                    <span className="text-gray-400">{formatTime(routine.endTime)}</span>
                   </div>
-                  <div className="flex-1 min-w-0">
-                    <p className="font-semibold text-sm text-gray-900 truncate">{routine.title}</p>
-                    <p className="text-xs text-gray-400">{routine.teacherName}</p>
+                  <div className="rounded-2xl border border-sky-200 bg-sky-100/80 px-5 py-4 shadow-sm">
+                    <p className="text-lg font-bold text-gray-900">{routine.title}</p>
+                    <p className="mt-1 text-sm text-gray-700">{routine.teacherName}</p>
                   </div>
                 </div>
               ))
             ) : (
-              <div className="flex-1 flex items-center justify-center py-8 text-center text-gray-400 italic">
-                No routines scheduled for today.
+              <div className="flex-1 flex items-center justify-center py-8 text-center">
+                <div className="rounded-2xl border border-dashed border-gray-200 bg-gray-50 px-6 py-10 w-full text-center">
+                  <p className="font-semibold text-gray-700">No routines scheduled for today.</p>
+                </div>
               </div>
             )}
           </div>
@@ -319,27 +338,31 @@ export function ParentDashboard({ user, announcements }: ParentDashboardProps) {
         {/* Notice Board */}
         <Card className="flex flex-col">
           <div className="p-4 border-b border-gray-100 flex items-center gap-2">
-            <Bell size={18} className="text-yellow-600" />
-            <h3 className="font-bold text-lg">Notice Board</h3>
+            <Bell size={18} className="text-indigo-600" />
+            <h3 className="font-bold text-lg">Recent Announcements</h3>
           </div>
-          <div className="p-4 space-y-3 flex-1">
+          <div className="p-4 space-y-4 flex-1">
             {visibleAnnouncements.length > 0 ? (
               visibleAnnouncements.map((announcement) => (
-                <div key={announcement.id} className="p-3 rounded-lg border border-gray-100 bg-gray-50 space-y-1">
-                  <div className="flex items-center gap-2 flex-wrap">
-                    <Badge color={announcement.type === 'urgent' ? 'red' : announcement.type === 'event' ? 'green' : 'blue'}>
-                      {announcement.type.toUpperCase()}
-                    </Badge>
-                    <span className="text-xs text-gray-500 font-medium">{announcement.author}</span>
-                    <span className="text-xs text-gray-400">{announcement.className ?? 'All Classes'}</span>
+                <div key={announcement.id} className="bg-gray-50 border border-gray-100 rounded-xl p-4">
+                  <div className="flex justify-between items-start gap-3 mb-2">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <Badge color={announcement.type === 'urgent' ? 'red' : announcement.type === 'event' ? 'green' : 'blue'}>
+                        {announcement.type}
+                      </Badge>
+                      <span className="text-xs text-gray-500 font-medium">{announcement.author}</span>
+                      <span className="text-xs text-gray-400">{announcement.className ?? 'All Classes'}</span>
+                    </div>
+                    <span className="text-xs text-gray-400 shrink-0">{announcement.date}</span>
                   </div>
                   <p className="text-sm text-gray-800">{announcement.text}</p>
-                  <p className="text-xs text-gray-400">{announcement.date}</p>
                 </div>
               ))
             ) : (
-              <div className="flex-1 flex items-center justify-center py-8 text-center text-gray-400 italic">
-                No announcements yet.
+              <div className="flex-1 flex items-center justify-center">
+                <div className="rounded-2xl border border-dashed border-gray-200 bg-gray-50 px-6 py-10 w-full text-center">
+                  <p className="font-semibold text-gray-700">No announcements yet.</p>
+                </div>
               </div>
             )}
           </div>

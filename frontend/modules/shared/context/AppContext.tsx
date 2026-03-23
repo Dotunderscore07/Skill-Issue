@@ -108,7 +108,7 @@ interface AppContextValue {
   sendBroadcastMessage: (text: string, image?: string) => Promise<void>;
   createTeacher: (payload: TeacherPayload) => Promise<void>;
   updateTeacher: (id: string, payload: UpdateTeacherPayload) => Promise<void>;
-  updateUserProfile: (id: string, payload: { name: string; phone: string; password?: string }) => Promise<void>;
+  updateUserProfile: (id: string, payload: { name: string; phone: string; password?: string; avatar?: string }) => Promise<void>;
   createStudent: (payload: StudentPayload) => Promise<void>;
   updateStudent: (id: string, payload: StudentPayload) => Promise<void>;
   createClass: (payload: ClassPayload) => Promise<void>;
@@ -402,10 +402,10 @@ export function AppProvider({ children }: { children: ReactNode }) {
     syncTeacherAssignments(updated.id, updated.classIds ?? payload.classIds);
   };
 
-  const updateUserProfile = async (id: string, payload: { name: string; phone: string; password?: string }) => {
+  const updateUserProfile = async (id: string, payload: { name: string; phone: string; password?: string; avatar?: string }) => {
     const updated = await UserApi.updateProfile(id, payload);
     setUser(updated);
-    if (updated.role === 'teacher') {
+    if (updated.role === 'teacher' || updated.role === 'coordinator') {
       setAllUsers((prev) => prev.map((entry) => (entry.id === id ? updated : entry)));
     }
   };
@@ -419,6 +419,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const updateStudent = async (id: string, payload: StudentPayload) => {
     const updated = await StudentApi.update(id, payload);
     setStudents((prev) => prev.map((entry) => (entry.id === id ? updated : entry)));
+    setSelectedChild((prev) => (prev?.id === id ? updated : prev));
   };
 
   const createClass = async (payload: ClassPayload) => {

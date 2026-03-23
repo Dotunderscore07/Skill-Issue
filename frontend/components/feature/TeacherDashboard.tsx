@@ -1,7 +1,7 @@
 'use client';
 
 import React from 'react';
-import { Clock3, Users, Calendar, Plus } from 'lucide-react';
+import { Clock3, Users, Calendar, Plus, Megaphone } from 'lucide-react';
 import { Card, Badge, Button } from '../ui';
 import { User, Announcement, AttendanceRecord } from '../../modules/shared/types';
 import { useAppContext } from '../../modules/shared/context/AppContext';
@@ -174,24 +174,31 @@ export function TeacherDashboard({ user, attendance, announcements, onNavigate }
         </Card>
 
         <Card className="flex flex-col">
-          <div className="p-4 border-b border-gray-100">
+          <div className="p-4 border-b border-gray-100 flex items-center gap-2">
+            <Megaphone size={18} className="text-indigo-600" />
             <h3 className="font-bold text-lg">Recent Announcements</h3>
           </div>
           <div className="p-4 space-y-4">
-            {visibleAnnouncements.slice(0, 3).map((announcement) => (
-              <div key={announcement.id} className="bg-yellow-50 p-3 rounded-lg border border-yellow-100">
-                <div className="flex justify-between items-start mb-1">
-                  <div className="flex items-center gap-2">
-                    <Badge color={announcement.type === 'urgent' ? 'red' : 'blue'}>{announcement.type}</Badge>
-                    <span className="text-xs text-gray-500">
-                      {announcement.className ?? 'All Classes'}
-                    </span>
-                  </div>
-                  <span className="text-xs text-gray-500">{announcement.date}</span>
-                </div>
-                <p className="text-sm text-gray-800">{announcement.text}</p>
+            {visibleAnnouncements.slice(0, 3).length === 0 ? (
+              <div className="rounded-2xl border border-dashed border-gray-200 bg-gray-50 px-6 py-10 text-center">
+                <p className="font-semibold text-gray-700">No announcements yet.</p>
               </div>
-            ))}
+            ) : (
+              visibleAnnouncements.slice(0, 3).map((announcement) => (
+                <div key={announcement.id} className="bg-gray-50 border border-gray-100 rounded-xl p-4">
+                  <div className="flex justify-between items-start gap-3 mb-2">
+                    <div className="flex items-center gap-2">
+                      <Badge color={announcement.type === 'urgent' ? 'red' : announcement.type === 'event' ? 'green' : 'blue'}>
+                        {announcement.type}
+                      </Badge>
+                      <span className="text-xs text-gray-500">{announcement.className ?? 'All Classes'}</span>
+                    </div>
+                    <span className="text-xs text-gray-400">{announcement.date}</span>
+                  </div>
+                  <p className="text-sm text-gray-800">{announcement.text}</p>
+                </div>
+              ))
+            )}
           </div>
         </Card>
       </div>

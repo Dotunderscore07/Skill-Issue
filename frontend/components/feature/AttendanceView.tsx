@@ -191,6 +191,7 @@ export function AttendanceView({ user, attendance, onUpdateAttendance }: Attenda
             type="date"
             className="bg-gray-50 border border-gray-200 text-gray-700 px-3 py-2 rounded-lg text-sm focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500"
             value={selectedDate}
+            max={today}
             onChange={(e) => setSelectedDate(e.target.value)}
           />
         </div>

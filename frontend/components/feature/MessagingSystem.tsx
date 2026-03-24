@@ -119,7 +119,13 @@ export function MessagingSystem({ user, messages, onSend }: MessagingSystemProps
                   onClick={() => handleSelectUser(entry)}
                   className="w-full text-left p-3 flex items-center gap-3 hover:bg-white rounded-lg transition-colors border-b border-gray-50 last:border-0"
                 >
-                  <span className="w-10 h-10 rounded-full bg-indigo-100 text-indigo-700 font-bold flex items-center justify-center">{entry.avatar}</span>
+                  {entry.avatar && entry.avatar.length > 5 ? (
+                    <img src={entry.avatar} alt={entry.name} className="w-10 h-10 rounded-full object-cover" />
+                  ) : (
+                    <span className="w-10 h-10 rounded-full bg-indigo-100 text-indigo-700 font-bold flex items-center justify-center">
+                      {entry.avatar || entry.name.charAt(0)}
+                    </span>
+                  )}
                   <div>
                     <p className="font-semibold text-sm text-gray-900">{entry.name}</p>
                     <p className="text-xs text-gray-400">
@@ -141,7 +147,13 @@ export function MessagingSystem({ user, messages, onSend }: MessagingSystemProps
                     selectedThread === entry.id ? 'bg-white border-l-4 border-l-indigo-500' : ''
                   }`}
                 >
-                  <span className="w-10 h-10 rounded-full bg-indigo-100 text-indigo-700 font-bold flex items-center justify-center">{entry.avatar}</span>
+                  {entry.avatar && entry.avatar.length > 5 ? (
+                    <img src={entry.avatar} alt={entry.name} className="w-10 h-10 rounded-full object-cover shrink-0" />
+                  ) : (
+                    <span className="w-10 h-10 rounded-full bg-indigo-100 text-indigo-700 font-bold flex items-center justify-center shrink-0">
+                      {entry.avatar || entry.name.charAt(0)}
+                    </span>
+                  )}
                   <div>
                     <p className="font-semibold text-sm text-gray-900">{entry.name}</p>
                     <p className="text-xs text-gray-500 truncate w-40">
@@ -168,7 +180,13 @@ export function MessagingSystem({ user, messages, onSend }: MessagingSystemProps
           <>
             <div className="p-4 border-b border-gray-100 flex justify-between items-center bg-white shadow-sm z-10">
               <div className="flex items-center gap-3">
-                <span className="w-10 h-10 rounded-full bg-indigo-100 text-indigo-700 font-bold flex items-center justify-center">{chatPartner.avatar}</span>
+                {chatPartner.avatar && chatPartner.avatar.length > 5 ? (
+                  <img src={chatPartner.avatar} alt={chatPartner.name} className="w-10 h-10 rounded-full object-cover shrink-0" />
+                ) : (
+                  <span className="w-10 h-10 rounded-full bg-indigo-100 text-indigo-700 font-bold flex items-center justify-center shrink-0">
+                    {chatPartner.avatar || chatPartner.name.charAt(0)}
+                  </span>
+                )}
                 <span className="font-bold text-gray-800">{chatPartner.name}</span>
               </div>
             </div>

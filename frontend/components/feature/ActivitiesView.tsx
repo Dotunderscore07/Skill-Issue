@@ -5,6 +5,7 @@ import { BookOpen, Trash, Edit } from 'lucide-react';
 import { Card, Badge, Button } from '../ui';
 import { User, Activity, MoodType } from '../../modules/shared/types';
 import { useAppContext } from '../../modules/shared/context/AppContext';
+import { useAlert } from '../../modules/shared/context/AlertContext';
 
 interface ActivitiesViewProps {
   user: User;
@@ -22,6 +23,7 @@ export function ActivitiesView({
   onDeleteActivity,
 }: ActivitiesViewProps) {
   const { students, selectedChild, selectedClass, classes, setSelectedClass, selectedDate, setSelectedDate, authLoading: loading } = useAppContext();
+  const { confirmAction } = useAlert();
 
   if (loading) return <div className="p-8 text-center text-gray-500">Loading activities...</div>;
 
@@ -42,6 +44,7 @@ export function ActivitiesView({
         onAdd={onAddActivity}
         onEdit={onEditActivity}
         onDelete={onDeleteActivity}
+        confirmAction={confirmAction}
       />
     );
   }
@@ -63,9 +66,10 @@ interface TeacherActivityFeedProps {
   onAdd: (studentId: string, text: string, mood: MoodType) => Promise<void>;
   onEdit: (id: number, text: string, mood: MoodType) => Promise<void>;
   onDelete: (id: number) => Promise<void>;
+  confirmAction: (message: string) => Promise<boolean>;
 }
 
-function TeacherActivityFeed({ user, classes, selectedClass, setSelectedClass, students, activities, selectedClassName, selectedDate, onSetDate, onAdd, onEdit, onDelete }: TeacherActivityFeedProps) {
+function TeacherActivityFeed({ user, classes, selectedClass, setSelectedClass, students, activities, selectedClassName, selectedDate, onSetDate, onAdd, onEdit, onDelete, confirmAction }: TeacherActivityFeedProps) {
   const [selectedStudent, setSelectedStudent] = useState('');
 
   useEffect(() => {
@@ -109,6 +113,7 @@ function TeacherActivityFeed({ user, classes, selectedClass, setSelectedClass, s
           type="date"
           className="p-2 border rounded-lg bg-white shadow-sm focus:ring-2 focus:ring-indigo-500 outline-none"
           value={selectedDate}
+          max={new Date().toISOString().split('T')[0]}
           onChange={(e) => onSetDate(e.target.value)}
         />
       </div>
@@ -253,8 +258,8 @@ function TeacherActivityFeed({ user, classes, selectedClass, setSelectedClass, s
                   <Edit size={16} />
                 </button>
                 <button
-                  onClick={() => {
-                    if (confirm('Delete this activity?')) onDelete(act.id);
+                  onClick={async () => {
+                    if (await confirmAction('Delete this activity?')) onDelete(act.id);
                   }}
                   disabled={selectedDate !== new Date().toISOString().split('T')[0]}
                   className={`p-1.5 rounded ${selectedDate !== new Date().toISOString().split('T')[0] ? 'text-gray-200 cursor-not-allowed' : 'text-gray-400 hover:text-red-600 hover:bg-red-50'}`}
@@ -307,6 +312,7 @@ function ParentActivityFeed({ user, student, activities, selectedDate, onSetDate
           type="date"
           className="p-2 border rounded-lg bg-white shadow-sm focus:ring-2 focus:ring-indigo-500 outline-none"
           value={selectedDate}
+          max={new Date().toISOString().split('T')[0]}
           onChange={(e) => onSetDate(e.target.value)}
         />
       </div>

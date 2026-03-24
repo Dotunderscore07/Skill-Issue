@@ -3,16 +3,16 @@
 import React, { useState } from 'react';
 import { Baby, LogIn, UserPlus } from 'lucide-react';
 import { useAppContext } from '../../modules/shared/context/AppContext';
+import { useAlert } from '../../modules/shared/context/AlertContext';
 
 export function LoginScreen({ onToggleRegister }: { onToggleRegister: () => void }) {
   const { login } = useAppContext();
+  const { showToast } = useAlert();
   const [phone, setPhone] = useState('');
   const [password, setPassword] = useState('');
-  const [error, setError] = useState('');
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
-    setError('');
     
     try {
       const res = await fetch('http://localhost:4000/api/auth/login', {
@@ -24,13 +24,13 @@ export function LoginScreen({ onToggleRegister }: { onToggleRegister: () => void
       const data = await res.json();
       
       if (data.success && data.data) {
-        // Successful login
+        showToast('Login successful!', 'success');
         login(data.data.user, data.data.token);
       } else {
-        setError(data.error || 'Login failed');
+        showToast(data.error || 'Login failed', 'error');
       }
     } catch (err) {
-      setError('Network error');
+      showToast('Network error', 'error');
     }
   };
 
@@ -44,8 +44,6 @@ export function LoginScreen({ onToggleRegister }: { onToggleRegister: () => void
           <h1 className="text-3xl font-bold text-gray-900">KinderConnect</h1>
           <p className="text-gray-500">Welcome Back!</p>
         </div>
-
-        {error && <div className="p-3 bg-red-100 text-red-700 rounded-md text-sm">{error}</div>}
 
         <form onSubmit={handleLogin} className="space-y-4">
           <div>

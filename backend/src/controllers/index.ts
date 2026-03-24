@@ -196,17 +196,18 @@ export class UserController {
 
   static async createTeacher(req: ExpressRequest, res: ExpressResponse) {
     try {
-      const { name, phone, password, classIds = [] } = req.body as {
+      const { name, phone, password, classIds = [], avatar: avatarInput } = req.body as {
         name: string;
         phone: string;
         password: string;
         classIds?: string[];
+        avatar?: string;
       };
 
       const salt = await bcrypt.genSalt(10);
       const hashedPassword = await bcrypt.hash(password, salt);
       const id = uuidv4();
-      const avatar = buildAvatar(name);
+      const avatar = avatarInput || buildAvatar(name);
 
       await query(
         'INSERT INTO users (id, name, phone, role, password, avatar) VALUES ($1, $2, $3, $4, $5, $6)',
@@ -281,17 +282,20 @@ export class UserController {
   static async updateTeacher(req: ExpressRequest, res: ExpressResponse) {
     try {
       const { id } = req.params;
-      const { name, phone, password, classIds = [] } = req.body as {
+      const { name, phone, password, classIds = [], avatar: avatarInput } = req.body as {
         name: string;
         phone: string;
         password?: string;
         classIds?: string[];
+        avatar?: string;
       };
+
+      const avatar = avatarInput || buildAvatar(name);
 
       await query('UPDATE users SET name = $1, phone = $2, avatar = $3 WHERE id = $4 AND role = $5', [
         name,
         phone,
-        buildAvatar(name),
+        avatar,
         id,
         'teacher',
       ]);

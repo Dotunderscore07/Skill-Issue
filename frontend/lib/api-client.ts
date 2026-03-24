@@ -36,7 +36,16 @@ async function request<T>(url: string, options?: RequestInit): Promise<T> {
 
   const json = (await res.json()) as { success: boolean; data: T; error?: string };
   if (!json.success) {
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new CustomEvent('api-error', { detail: json.error ?? 'API error' }));
+    }
     throw new Error(json.error ?? 'API error');
+  }
+
+  if (options?.method && options.method !== 'GET') {
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new CustomEvent('api-success', { detail: 'Operation successful' }));
+    }
   }
 
   return json.data;
@@ -208,14 +217,14 @@ export class UserApi {
 }
 
 export class TeacherApi {
-  static create(payload: { name: string; phone: string; password: string; classIds: string[] }) {
+  static create(payload: { name: string; phone: string; password: string; classIds: string[]; avatar?: string }) {
     return request<User>(`${BASE}/users/teachers`, {
       method: 'POST',
       body: JSON.stringify(payload),
     });
   }
 
-  static update(id: string, payload: { name: string; phone: string; password?: string; classIds: string[] }) {
+  static update(id: string, payload: { name: string; phone: string; password?: string; classIds: string[]; avatar?: string }) {
     return request<User>(`${BASE}/users/teachers/${id}`, {
       method: 'PUT',
       body: JSON.stringify(payload),

@@ -3,23 +3,21 @@
 import React, { useState } from 'react';
 import { UserPlus, ArrowLeft } from 'lucide-react';
 import { useAppContext } from '../../modules/shared/context/AppContext';
+import { useAlert } from '../../modules/shared/context/AlertContext';
 
 export function RegisterScreen({ onToggleLogin }: { onToggleLogin: () => void }) {
   const { login } = useAppContext();
+  const { showToast } = useAlert();
   const [name, setName] = useState('');
   const [phone, setPhone] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
-  const [error, setError] = useState('');
-  const [success, setSuccess] = useState('');
 
   const handleRegister = async (e: React.FormEvent) => {
     e.preventDefault();
-    setError('');
-    setSuccess('');
     
     if (password !== confirmPassword) {
-      setError('Passwords do not match');
+      showToast('Passwords do not match', 'error');
       return;
     }
 
@@ -33,7 +31,7 @@ export function RegisterScreen({ onToggleLogin }: { onToggleLogin: () => void })
       const data = await res.json();
       
       if (data.success) {
-        setSuccess('Registration successful! Logging you in...');
+        showToast('Registration successful! Logging you in...', 'success');
         try {
           const loginRes = await fetch('http://localhost:4000/api/auth/login', {
             method: 'POST',
@@ -45,18 +43,18 @@ export function RegisterScreen({ onToggleLogin }: { onToggleLogin: () => void })
           if (loginData.success && loginData.data) {
             login(loginData.data.user, loginData.data.token);
           } else {
-            setError('Auto-login failed. Please log in manually.');
+            showToast('Auto-login failed. Please log in manually.', 'error');
             setTimeout(onToggleLogin, 2000);
           }
         } catch (err) {
-          setError('Auto-login failed. Please log in manually.');
+          showToast('Auto-login failed. Please log in manually.', 'error');
           setTimeout(onToggleLogin, 2000);
         }
       } else {
-        setError(data.error || 'Registration failed');
+        showToast(data.error || 'Registration failed', 'error');
       }
     } catch (err) {
-      setError('Network error');
+      showToast('Network error', 'error');
     }
   };
 
@@ -70,9 +68,6 @@ export function RegisterScreen({ onToggleLogin }: { onToggleLogin: () => void })
           <h1 className="text-3xl font-bold text-gray-900">Create Account</h1>
           <p className="text-gray-500">Join KinderConnect today.</p>
         </div>
-
-        {error && <div className="p-3 bg-red-100 text-red-700 rounded-md text-sm">{error}</div>}
-        {success && <div className="p-3 bg-green-100 text-green-700 rounded-md text-sm">{success}</div>}
 
         <form onSubmit={handleRegister} className="space-y-4">
           <div>

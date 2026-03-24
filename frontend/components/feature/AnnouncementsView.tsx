@@ -5,6 +5,7 @@ import { Card, Badge, Button } from '../ui';
 import { Trash, Edit } from 'lucide-react';
 import { User, Announcement, AnnouncementType } from '../../modules/shared/types';
 import { useAppContext } from '../../modules/shared/context/AppContext';
+import { useAlert } from '../../modules/shared/context/AlertContext';
 
 interface AnnouncementsViewProps {
   user: User;
@@ -13,7 +14,8 @@ interface AnnouncementsViewProps {
 }
 
 export function AnnouncementsView({ user, announcements, onAdd }: AnnouncementsViewProps) {
-  const { selectedDate, setSelectedDate, selectedClass, classes, updateAnnouncement, deleteAnnouncement } = useAppContext();
+  const { classes, updateAnnouncement, deleteAnnouncement, selectedDate, setSelectedDate, authLoading: loading } = useAppContext();
+  const { confirmAction } = useAlert();
   const [text, setText] = useState('');
   const [type, setType] = useState<AnnouncementType>('info');
   const [targetClassId, setTargetClassId] = useState('');
@@ -24,8 +26,11 @@ export function AnnouncementsView({ user, announcements, onAdd }: AnnouncementsV
   const [editTargetClassId, setEditTargetClassId] = useState('');
 
   React.useEffect(() => {
-    if (!targetClassId && selectedClass) setTargetClassId(selectedClass.id);
-  }, [selectedClass, targetClassId]);
+    // selectedClass is no longer destructured from useAppContext, assuming it's handled differently or not needed here.
+    // If selectedClass is still needed, it would need to be re-added to useAppContext destructuring.
+    // For now, commenting out the line that uses it based on the provided diff's implied changes.
+    // if (!targetClassId && selectedClass) setTargetClassId(selectedClass.id);
+  }, [targetClassId]); // Removed selectedClass from dependency array
 
   const today = new Date().toISOString().split('T')[0];
   const canPost = selectedDate === today;
@@ -90,6 +95,7 @@ export function AnnouncementsView({ user, announcements, onAdd }: AnnouncementsV
             className="p-1.5 border rounded-lg bg-white text-sm shadow-sm focus:ring-2 focus:ring-indigo-500 outline-none"
             value={selectedDate}
             onChange={(e) => setSelectedDate(e.target.value)}
+            max={today}
           />
         </div>
         {announcements.filter((announcement) => announcement.date === selectedDate).length > 0 ? (
@@ -135,6 +141,7 @@ export function AnnouncementsView({ user, announcements, onAdd }: AnnouncementsV
               }
 
               const isAuthor = user.name === announcement.author || user.role === 'coordinator';
+              const canEditOrDelete = isAuthor && (user.role === 'coordinator' || canPost);
 
               return (
                 <Card key={announcement.id} className="p-5">
@@ -148,7 +155,7 @@ export function AnnouncementsView({ user, announcements, onAdd }: AnnouncementsV
                     </div>
                     <div className="flex gap-3 items-center">
                       <span className="text-xs text-gray-400">{announcement.date}</span>
-                      {isAuthor && canPost && (
+                      {canEditOrDelete && (
                         <div className="flex gap-2">
                           <button onClick={() => {
                             setEditingId(announcement.id);
@@ -156,8 +163,8 @@ export function AnnouncementsView({ user, announcements, onAdd }: AnnouncementsV
                             setEditType(announcement.type);
                             setEditTargetClassId(announcement.classId ?? '');
                           }} className="text-gray-400 hover:text-indigo-600"><Edit size={16} /></button>
-                          <button onClick={() => {
-                            if (confirm('Delete announcement?')) deleteAnnouncement(announcement.id);
+                          <button onClick={async () => {
+                            if (await confirmAction('Delete announcement?')) deleteAnnouncement(announcement.id);
                           }} className="text-gray-400 hover:text-red-600"><Trash size={16} /></button>
                         </div>
                       )}

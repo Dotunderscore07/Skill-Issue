@@ -42,6 +42,7 @@ interface TeacherPayload {
   phone: string;
   password: string;
   classIds: string[];
+  avatar?: string;
 }
 
 interface UpdateTeacherPayload {
@@ -49,6 +50,7 @@ interface UpdateTeacherPayload {
   phone: string;
   password?: string;
   classIds: string[];
+  avatar?: string;
 }
 
 interface StudentPayload {

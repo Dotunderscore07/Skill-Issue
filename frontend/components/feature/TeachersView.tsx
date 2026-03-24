@@ -4,16 +4,27 @@ import React, { useState } from 'react';
 import { PencilLine, Plus } from 'lucide-react';
 import { Button, Card } from '../ui';
 import { useAppContext } from '../../modules/shared/context/AppContext';
+import { useAlert } from '../../modules/shared/context/AlertContext';
 
 export function TeachersView() {
   const { allUsers, classes, createTeacher, updateTeacher, deleteTeacher } = useAppContext();
+  const { confirmAction } = useAlert();
   const teachers = allUsers.filter((user) => user.role === 'teacher');
   const [editingId, setEditingId] = useState<string | null>(null);
-  const [form, setForm] = useState({ name: '', phone: '', password: '', classIds: [] as string[] });
+  const [form, setForm] = useState({ name: '', phone: '', password: '', classIds: [] as string[], avatar: '' });
 
   const startCreate = () => {
     setEditingId(null);
-    setForm({ name: '', phone: '', password: '', classIds: [] });
+    setForm({ name: '', phone: '', password: '', classIds: [], avatar: '' });
+  };
+
+  const handlePhotoChange = async (file: File | null) => {
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = () => {
+      setForm((current) => ({ ...current, avatar: typeof reader.result === 'string' ? reader.result : '' }));
+    };
+    reader.readAsDataURL(file);
   };
 
   const startEdit = (teacherId: string) => {
@@ -25,6 +36,7 @@ export function TeachersView() {
       phone: teacher.phone ?? '',
       password: '',
       classIds: teacher.classIds ?? [],
+      avatar: teacher.avatar ?? '',
     });
   };
 
@@ -71,6 +83,13 @@ export function TeachersView() {
               <input required={!editingId} value={form.password} onChange={(e) => setForm((current) => ({ ...current, password: e.target.value }))} placeholder={editingId ? 'Leave blank to keep current' : 'Enter a password'} type="password" className="w-full px-4 py-2 border border-gray-200 rounded-xl focus:ring-2 focus:ring-indigo-500 outline-none" />
             </div>
           </div>
+          <div className="space-y-3">
+            <label className="text-sm font-medium text-gray-700">Profile Photo (Optional)</label>
+            <input type="file" accept="image/png, image/jpeg, image/jpg, image/webp" onChange={(e) => handlePhotoChange(e.target.files?.[0] ?? null)} className="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-indigo-50 file:text-indigo-700 hover:file:bg-indigo-100" />
+            {(form.avatar && form.avatar.startsWith('data:')) && (
+              <img src={form.avatar} alt="Teacher preview" className="w-20 h-20 rounded-2xl object-cover border border-gray-200" />
+            )}
+          </div>
           <div>
             <p className="text-sm font-medium text-gray-700 mb-2">Assigned classes</p>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
@@ -86,7 +105,7 @@ export function TeachersView() {
             {editingId && (
               <>
                 <Button type="button" variant="danger" onClick={async () => {
-                  if (confirm('Are you sure you want to delete this teacher? This will delete their class assignments and assigned routines!')) {
+                  if (await confirmAction('Are you sure you want to delete this teacher? This will delete their class assignments and assigned routines!')) {
                     await deleteTeacher(editingId);
                     startCreate();
                   }
@@ -112,14 +131,19 @@ export function TeachersView() {
         <div className="divide-y divide-gray-100">
           {teachers.map((teacher) => (
             <div key={teacher.id} className="p-4 flex flex-col md:flex-row md:items-center justify-between gap-3">
-              <div>
-                <p className="font-semibold text-gray-900">{teacher.name}</p>
-                <p className="text-sm text-gray-500">{teacher.phone}</p>
-                <p className="text-xs text-gray-400 mt-1">
+              <div className="flex items-center gap-4">
+                <div className="w-14 h-14 rounded-2xl overflow-hidden bg-indigo-100 flex items-center justify-center text-indigo-700 font-semibold shrink-0">
+                  {teacher.avatar?.startsWith('data:') ? <img src={teacher.avatar} alt={teacher.name} className="w-full h-full object-cover" /> : teacher.avatar || teacher.name.slice(0, 2).toUpperCase()}
+                </div>
+                <div>
+                  <p className="font-semibold text-gray-900">{teacher.name}</p>
+                  <p className="text-sm text-gray-500">{teacher.phone}</p>
+                  <p className="text-xs text-gray-400 mt-1">
                   {(teacher.classIds ?? [])
                     .map((classId) => classes.find((entry) => entry.id === classId)?.name ?? classId)
                     .join(', ') || 'No classes assigned'}
-                </p>
+                  </p>
+                </div>
               </div>
               <Button variant="secondary" onClick={() => startEdit(teacher.id)}>
                 <PencilLine size={16} />

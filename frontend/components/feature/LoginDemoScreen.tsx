@@ -36,8 +36,12 @@ export function LoginDemoScreen() {
                 onClick={() => login(u, 'demo-token')}
                 className="flex items-center p-4 border border-gray-200 rounded-xl hover:border-indigo-500 hover:bg-indigo-50 transition-all group"
               >
-                <span className="text-2xl mr-4 group-hover:scale-110 transition-transform">
-                  {u.avatar}
+                <span className="text-2xl w-10 h-10 rounded-full mr-4 group-hover:scale-110 transition-transform flex items-center justify-center shrink-0">
+                  {u.avatar?.startsWith('data:') ? (
+                    <img src={u.avatar} alt={u.name} className="w-10 h-10 rounded-full object-cover" />
+                  ) : (
+                    u.avatar
+                  )}
                 </span>
                 <div className="text-left">
                   <p className="font-semibold text-gray-900">{u.name}</p>

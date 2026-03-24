@@ -5,9 +5,11 @@ import { PencilLine, Plus } from 'lucide-react';
 import { Button, Card } from '../ui';
 import { Class } from '../../modules/shared/types';
 import { useAppContext } from '../../modules/shared/context/AppContext';
+import { useAlert } from '../../modules/shared/context/AlertContext';
 
 export function ClassesView() {
   const { classes, allUsers, createClass, updateClass, deleteClass } = useAppContext();
+  const { confirmAction } = useAlert();
   const teachers = allUsers.filter((user) => user.role === 'teacher');
   const [editingClass, setEditingClass] = useState<Class | null>(null);
   const [form, setForm] = useState({ name: '', teacherIds: [] as string[] });
@@ -69,12 +71,16 @@ export function ClassesView() {
           <div className="flex justify-end gap-3 mt-4">
             {editingClass && (
               <>
-                <Button type="button" variant="danger" onClick={async () => {
-                  if (confirm('Are you sure you want to delete this class? This will delete all routines, assigned teachers, and unassign enrolled children!')) {
-                    await deleteClass(editingClass.id);
-                    resetForm();
-                  }
-                }}>
+                <Button
+                  type="button"
+                  variant="danger"
+                  onClick={async () => {
+                    if (await confirmAction('Are you sure you want to delete this class? This will delete all routines, assigned teachers, and unassign enrolled children!')) {
+                      await deleteClass(editingClass.id);
+                      resetForm();
+                    }
+                  }}
+                >
                   Delete Class
                 </Button>
                 <Button type="button" variant="secondary" onClick={resetForm}>

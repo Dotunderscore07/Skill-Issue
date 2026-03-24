@@ -5,6 +5,7 @@ import { PencilLine, Plus } from 'lucide-react';
 import { Button, Card } from '../ui';
 import { Student } from '../../modules/shared/types';
 import { useAppContext } from '../../modules/shared/context/AppContext';
+import { useAlert } from '../../modules/shared/context/AlertContext';
 
 const emptyForm = {
   name: '',
@@ -14,8 +15,15 @@ const emptyForm = {
   classId: '',
 };
 
+const calculateAge = (dob: string) => {
+  const diff = new Date().getTime() - new Date(dob).getTime();
+  const age = Math.floor(diff / (1000 * 60 * 60 * 24 * 365.25));
+  return age;
+};
+
 export function ChildrenView() {
   const { students, classes, allUsers, createStudent, updateStudent, deleteStudent } = useAppContext();
+  const { confirmAction } = useAlert();
   const parents = allUsers.filter((user) => user.role === 'parent');
   const [editingStudent, setEditingStudent] = useState<Student | null>(null);
   const [form, setForm] = useState(emptyForm);
@@ -113,12 +121,15 @@ export function ChildrenView() {
           <div className="flex justify-end gap-3 mt-4">
             {editingStudent && (
               <>
-                <Button type="button" variant="danger" onClick={async () => {
-                  if (confirm('Are you sure you want to delete this child? This will also remove their activities and attendance records!')) {
+                <Button
+                variant="danger"
+                onClick={async () => {
+                  if (await confirmAction('Are you sure you want to delete this child? This will also remove their activities and attendance records!')) {
                     await deleteStudent(editingStudent.id);
                     resetForm();
                   }
-                }}>
+                }}
+              >
                   Delete Child
                 </Button>
                 <Button type="button" variant="secondary" onClick={resetForm}>
@@ -146,7 +157,7 @@ export function ChildrenView() {
                 </div>
                 <div>
                   <p className="font-semibold text-gray-900">{student.name}</p>
-                  <p className="text-sm text-gray-500">DOB: {student.dob}</p>
+                  <p className="text-sm text-gray-500">DOB: {student.dob} ({calculateAge(student.dob)} {calculateAge(student.dob) === 1 ? 'yr' : 'yrs'})</p>
                   <p className="text-xs text-gray-400 mt-1">
                     {parents.find((parent) => parent.id === student.parentId)?.name ?? 'No parent assigned'} | {classes.find((entry) => entry.id === student.classId)?.name ?? 'No class'}
                   </p>

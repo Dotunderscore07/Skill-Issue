@@ -16,7 +16,7 @@ import {
 
 const BASE = 'http://localhost:4000/api';
 
-async function request<T>(url: string, options?: RequestInit): Promise<T> {
+async function request<T>(url: string, options?: RequestInit, silent: boolean = false): Promise<T> {
   const headers: HeadersInit = {
     'Content-Type': 'application/json',
   };
@@ -42,7 +42,7 @@ async function request<T>(url: string, options?: RequestInit): Promise<T> {
     throw new Error(json.error ?? 'API error');
   }
 
-  if (options?.method && options.method !== 'GET') {
+  if (options?.method && options.method !== 'GET' && !silent) {
     if (typeof window !== 'undefined') {
       window.dispatchEvent(new CustomEvent('api-success', { detail: 'Operation successful' }));
     }
@@ -138,7 +138,7 @@ export class AttendanceApi {
     return request<AttendanceRecord>(`${BASE}/attendance`, {
       method: 'PUT',
       body: JSON.stringify({ studentId, status, date }),
-    });
+    }, true);
   }
 }
 
@@ -161,10 +161,10 @@ export class MessageApi {
     });
   }
 
-  static sendBroadcast(text: string, image?: string) {
+  static sendBroadcast(text: string, image?: string, toId?: string) {
     return request<Message>(`${BASE}/messages`, {
       method: 'POST',
-      body: JSON.stringify({ text, image: image ?? '', kind: 'broadcast' satisfies MessageKind }),
+      body: JSON.stringify({ toId: toId ?? null, text, image: image ?? '', kind: 'broadcast' satisfies MessageKind }),
     });
   }
 }

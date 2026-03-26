@@ -118,7 +118,8 @@ export const initDb = async () => {
         id SERIAL PRIMARY KEY,
         date VARCHAR(50) NOT NULL,
         "studentId" VARCHAR(50) NOT NULL,
-        status VARCHAR(50) NOT NULL
+        status VARCHAR(50) NOT NULL,
+        UNIQUE (date, "studentId")
       );
 
       CREATE TABLE IF NOT EXISTS messages (
@@ -141,6 +142,29 @@ export const initDb = async () => {
         "endTime" VARCHAR(5) NOT NULL,
         title VARCHAR(255) NOT NULL
       );
+      /* Keep routines last in the string */
+    `);
+
+    // Clean up duplicates and add unique constraint if it doesn't exist
+    await pool.query(`
+      DELETE FROM attendance_records a USING (
+        SELECT MIN(id) as min_id, date, "studentId"
+        FROM attendance_records
+        GROUP BY date, "studentId"
+        HAVING COUNT(*) > 1
+      ) b
+      WHERE a.date = b.date 
+      AND a."studentId" = b."studentId" 
+      AND a.id > b.min_id;
+
+      DO $$ 
+      BEGIN 
+        IF NOT EXISTS (
+          SELECT 1 FROM pg_constraint WHERE conname = 'attendance_records_date_studentId_key'
+        ) THEN 
+          ALTER TABLE attendance_records ADD CONSTRAINT attendance_records_date_studentId_key UNIQUE (date, "studentId");
+        END IF;
+      END $$;
     `);
 
     const salt = await bcrypt.genSalt(10);
@@ -201,7 +225,7 @@ export const initDb = async () => {
 
     for (const att of INITIAL_ATTENDANCE) {
       await pool.query(
-        'INSERT INTO attendance_records (date, "studentId", status) VALUES ($1, $2, $3)',
+        'INSERT INTO attendance_records (date, "studentId", status) VALUES ($1, $2, $3) ON CONFLICT (date, "studentId") DO NOTHING',
         [att.date, att.studentId, att.status]
       );
     }

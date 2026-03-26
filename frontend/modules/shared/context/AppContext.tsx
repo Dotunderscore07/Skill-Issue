@@ -1,6 +1,6 @@
 'use client';
 
-import React, { createContext, useContext, useState, ReactNode } from 'react';
+import React, { createContext, useContext, useState, useCallback, useEffect, ReactNode } from 'react';
 import {
   User,
   Announcement,
@@ -16,63 +16,15 @@ import {
   Routine,
   DayOfWeek,
 } from '../types';
-import {
-  AnnouncementApi,
-  ActivityApi,
-  AttendanceApi,
-  MessageApi,
-  AuthApi,
-  StudentApi,
-  ClassApi,
-  UserApi,
-  TeacherApi,
-  DashboardApi,
-  RoutineApi,
-} from '../../../lib/api-client';
+import { useAuth } from '../../../hooks/useAuth';
+import { useDataService } from '../../../hooks/useDataService';
+import { useCrudService } from '../../../hooks/useCrudService';
 
 interface CoordinatorSummary {
   totalTeachers: number;
   totalChildren: number;
   totalParents: number;
   announcements: Announcement[];
-}
-
-interface TeacherPayload {
-  name: string;
-  phone: string;
-  password: string;
-  classIds: string[];
-  avatar?: string;
-}
-
-interface UpdateTeacherPayload {
-  name: string;
-  phone: string;
-  password?: string;
-  classIds: string[];
-  avatar?: string;
-}
-
-interface StudentPayload {
-  name: string;
-  dob: string;
-  photo: string;
-  parentId?: string;
-  classId: string;
-}
-
-interface ClassPayload {
-  name: string;
-  teacherIds: string[];
-}
-
-interface RoutinePayload {
-  classId: string;
-  teacherId: string;
-  dayOfWeek: DayOfWeek;
-  startTime: string;
-  endTime: string;
-  title: string;
 }
 
 interface AppContextValue {
@@ -96,8 +48,8 @@ interface AppContextValue {
   login: (userData: User, token: string) => void;
   logout: () => void;
   setView: (view: ViewType) => void;
-  setSelectedChild: (student: Student) => void;
-  setSelectedClass: (cls: Class) => void;
+  setSelectedChild: (student: Student | null) => void;
+  setSelectedClass: (cls: Class | null) => void;
   setSelectedDate: (date: string) => void;
   addAnnouncement: (text: string, type: AnnouncementType, author: string, classId?: string) => Promise<void>;
   updateAnnouncement: (id: number, text: string, type: AnnouncementType, classId?: string) => Promise<void>;
@@ -107,16 +59,16 @@ interface AppContextValue {
   deleteActivity: (id: number) => Promise<void>;
   updateAttendance: (studentId: string, status: AttendanceStatus, date: string) => Promise<void>;
   sendMessage: (toId: string, text: string, image?: string) => Promise<void>;
-  sendBroadcastMessage: (text: string, image?: string) => Promise<void>;
-  createTeacher: (payload: TeacherPayload) => Promise<void>;
-  updateTeacher: (id: string, payload: UpdateTeacherPayload) => Promise<void>;
-  updateUserProfile: (id: string, payload: { name: string; phone: string; password?: string; avatar?: string }) => Promise<void>;
-  createStudent: (payload: StudentPayload) => Promise<void>;
-  updateStudent: (id: string, payload: StudentPayload) => Promise<void>;
-  createClass: (payload: ClassPayload) => Promise<void>;
-  updateClass: (id: string, payload: ClassPayload) => Promise<void>;
-  createRoutine: (payload: RoutinePayload) => Promise<void>;
-  updateRoutine: (id: number, payload: RoutinePayload) => Promise<void>;
+  sendBroadcastMessage: (text: string, image?: string, classId?: string) => Promise<void>;
+  createTeacher: (payload: any) => Promise<void>;
+  updateTeacher: (id: string, payload: any) => Promise<void>;
+  updateUserProfile: (id: string, payload: any) => Promise<void>;
+  createStudent: (payload: any) => Promise<void>;
+  updateStudent: (id: string, payload: any) => Promise<void>;
+  createClass: (payload: any) => Promise<void>;
+  updateClass: (id: string, payload: any) => Promise<void>;
+  createRoutine: (payload: any) => Promise<void>;
+  updateRoutine: (id: number, payload: any) => Promise<void>;
   deleteRoutine: (id: number) => Promise<void>;
   deleteTeacher: (id: string) => Promise<void>;
   deleteStudent: (id: string) => Promise<void>;
@@ -126,360 +78,89 @@ interface AppContextValue {
 const AppContext = createContext<AppContextValue | null>(null);
 
 export function AppProvider({ children }: { children: ReactNode }) {
-  const [user, setUser] = useState<User | null>(null);
-  const [token, setToken] = useState<string | null>(null);
-  const [authLoading, setAuthLoading] = useState(true);
+  const { user, setUser, token, authLoading, setAuthLoading, login, logout, updateUserProfile } = useAuth();
+  const dataService = useDataService();
+  
   const [view, setView] = useState<ViewType>('dashboard');
-  const [announcements, setAnnouncements] = useState<Announcement[]>([]);
-  const [activities, setActivities] = useState<Activity[]>([]);
-  const [attendance, setAttendance] = useState<AttendanceRecord[]>([]);
-  const [messages, setMessages] = useState<Message[]>([]);
-  const [broadcastMessages, setBroadcastMessages] = useState<Message[]>([]);
-  const [allUsers, setAllUsers] = useState<User[]>([]);
-  const [students, setStudents] = useState<Student[]>([]);
-  const [classes, setClasses] = useState<Class[]>([]);
-  const [routines, setRoutines] = useState<Routine[]>([]);
   const [selectedChild, setSelectedChild] = useState<Student | null>(null);
   const [selectedClass, setSelectedClass] = useState<Class | null>(null);
   const [selectedDate, setSelectedDate] = useState<string>(new Date().toISOString().split('T')[0]);
-  const [coordinatorSummary, setCoordinatorSummary] = useState<CoordinatorSummary | null>(null);
 
-  const syncTeacherAssignments = React.useCallback((teacherId: string, classIds: string[]) => {
-    setClasses((prev) =>
-      prev.map((entry) => {
-        const existingTeacherIds = entry.teacherIds ?? [];
-        const withoutTeacher = existingTeacherIds.filter((id) => id !== teacherId);
-        return {
-          ...entry,
-          teacherIds: classIds.includes(entry.id) ? [...withoutTeacher, teacherId] : withoutTeacher,
-        };
+  const syncTeacherAssignments = useCallback((teacherId: string, classIds: string[]) => {
+    dataService.setClasses((prev) =>
+      prev.map((cls) => {
+        const ids = cls.teacherIds ?? [];
+        const withoutTeacher = ids.filter((id) => id !== teacherId);
+        return { ...cls, teacherIds: classIds.includes(cls.id) ? [...withoutTeacher, teacherId] : withoutTeacher };
       })
     );
+    setUser((prev) => (prev?.id === teacherId && prev.role === 'teacher' ? { ...prev, classIds } : prev));
+  }, [dataService.setClasses, setUser]);
 
-    setUser((prev) => {
-      if (!prev || prev.role !== 'teacher' || prev.id !== teacherId) {
-        return prev;
-      }
-
-      return {
-        ...prev,
-        classIds,
-      };
-    });
-  }, []);
-
-  const syncTeacherClassIds = React.useCallback((teacherIdsByClass: Record<string, string[]>) => {
-    setAllUsers((prev) =>
-      prev.map((userEntry) => {
-        if (userEntry.role !== 'teacher') {
-          return userEntry;
-        }
-
-        const classIds = Object.entries(teacherIdsByClass)
-          .filter(([, teacherIds]) => teacherIds.includes(userEntry.id))
-          .map(([classId]) => classId);
-
-        return {
-          ...userEntry,
-          classIds,
-        };
-      })
-    );
-
-    setUser((prev) => {
-      if (!prev || prev.role !== 'teacher') {
-        return prev;
-      }
-
+  const syncTeacherClassIds = useCallback((teacherIdsByClass: Record<string, string[]>) => {
+    const update = (u: User) => {
+      if (u.role !== 'teacher') return u;
       const classIds = Object.entries(teacherIdsByClass)
-        .filter(([, teacherIds]) => teacherIds.includes(prev.id))
-        .map(([classId]) => classId);
+        .filter(([, ids]) => ids.includes(u.id))
+        .map(([id]) => id);
+      return { ...u, classIds };
+    };
+    dataService.setAllUsers((prev) => prev.map(update));
+    // @ts-ignore
+    setUser((prev) => prev ? update(prev) : prev);
+  }, [dataService.setAllUsers, setUser]);
 
-      return {
-        ...prev,
-        classIds,
-      };
-    });
-  }, []);
-
-  const hydrateSelections = React.useCallback(
-    (nextUser: User | null, nextStudents: Student[], nextClasses: Class[]) => {
-      if (nextUser?.role === 'parent') {
-        const myChildren = nextStudents.filter((student) => student.parentId === nextUser.id);
-        setSelectedChild((current) => current && myChildren.some((student) => student.id === current.id) ? current : myChildren[0] ?? null);
-      } else {
-        setSelectedChild(null);
-      }
-
-      if (nextUser?.role === 'teacher') {
-        const preferredClassId = nextUser.classIds?.[0];
-        const fallbackClass =
-          nextClasses.find((entry) => entry.id === preferredClassId) ??
-          nextClasses.find((entry) => entry.teacherIds?.includes(nextUser.id));
-        setSelectedClass((current) => current && nextClasses.some((entry) => entry.id === current.id) ? current : fallbackClass ?? nextClasses[0] ?? null);
-      } else {
-        setSelectedClass(null);
-      }
-    },
-    []
+  const crudService = useCrudService(
+    dataService.setAllUsers,
+    dataService.setStudents,
+    dataService.setClasses,
+    dataService.setRoutines,
+    dataService.setCoordinatorSummary,
+    syncTeacherAssignments,
+    syncTeacherClassIds
   );
 
-  const loadData = React.useCallback(async (activeUser: User) => {
-    const shouldLoadRoutines =
-      activeUser.role === 'teacher' || activeUser.role === 'coordinator' || activeUser.role === 'parent';
-    const [anns, acts, atts, studs, clss, routinesData, allUsrs, directMessages, broadcasts] = await Promise.all([
-      AnnouncementApi.getAll(),
-      ActivityApi.getAll(),
-      AttendanceApi.getAll(),
-      StudentApi.getAll(),
-      ClassApi.getAll(),
-      shouldLoadRoutines ? RoutineApi.getAll() : Promise.resolve([]),
-      UserApi.getAll(),
-      MessageApi.getAll(),
-      activeUser.role === 'coordinator' ? MessageApi.getBroadcasts() : Promise.resolve([]),
-    ]);
-
-    setAnnouncements(anns);
-    setActivities(acts);
-    setAttendance(atts);
-    setStudents(studs);
-    setClasses(clss);
-    setRoutines(routinesData);
-    setAllUsers(allUsrs);
-    setMessages(directMessages);
-    setBroadcastMessages(broadcasts);
-    hydrateSelections(activeUser, studs, clss);
-
-    if (activeUser.role === 'coordinator') {
-      const summary = await DashboardApi.getCoordinatorSummary();
-      setCoordinatorSummary(summary);
+  const hydrateSelections = useCallback((nextUser: User | null, nextStudents: Student[], nextClasses: Class[]) => {
+    if (nextUser?.role === 'parent') {
+      const myChildren = nextStudents.filter((s) => s.parentId === nextUser.id);
+      setSelectedChild((curr) => curr && myChildren.some((s) => s.id === curr.id) ? curr : myChildren[0] ?? null);
     } else {
-      setCoordinatorSummary(null);
+      setSelectedChild(null);
     }
-  }, [hydrateSelections]);
 
-  React.useEffect(() => {
-    AuthApi.me()
-      .then((userData) => {
-        setUser(userData);
-        setToken('cookie');
-      })
-      .catch(() => {
-        setUser(null);
-      })
-      .finally(() => {
-        setAuthLoading(false);
-      });
+    if (nextUser?.role === 'teacher') {
+      const preferred = nextUser.classIds?.[0];
+      const fallback = nextClasses.find((c) => c.id === preferred) ?? nextClasses.find((c) => c.teacherIds?.includes(nextUser.id));
+      setSelectedClass((curr) => curr && nextClasses.some((c) => c.id === curr.id) ? curr : fallback ?? nextClasses[0] ?? null);
+    } else {
+      setSelectedClass(null);
+    }
   }, []);
 
-  React.useEffect(() => {
+  useEffect(() => {
     if (!token || !user) {
-      setAnnouncements([]);
-      setActivities([]);
-      setAttendance([]);
-      setStudents([]);
-      setClasses([]);
-      setRoutines([]);
-      setAllUsers([]);
-      setMessages([]);
-      setBroadcastMessages([]);
-      setSelectedChild(null);
-      setSelectedClass(null);
-      setCoordinatorSummary(null);
-      setAuthLoading(false);
+      dataService.clearAllData();
       return;
     }
-
     setAuthLoading(true);
-    loadData(user)
+    dataService.loadAllData(user)
+      .then(() => hydrateSelections(user, dataService.students, dataService.classes))
       .catch((err) => console.error('Failed to load initial data:', err))
       .finally(() => setAuthLoading(false));
-  }, [token, user, loadData]);
+  }, [token, user, dataService.loadAllData, hydrateSelections, setAuthLoading]);
 
-  const login = (userData: User, authToken: string) => {
-    setUser(userData);
-    setToken(authToken || 'cookie');
-    if (typeof window !== 'undefined') {
-      localStorage.setItem('kinderconnect_token', authToken);
-    }
-    setView('dashboard');
-  };
-
-  const logout = async () => {
-    try {
-      await AuthApi.logout();
-    } catch (e) {
-      console.error(e);
-    }
-
-    setUser(null);
-    setToken(null);
-    if (typeof window !== 'undefined') {
-      localStorage.removeItem('kinderconnect_token');
-    }
-  };
-
-  const addAnnouncement = async (text: string, type: AnnouncementType, author: string, classId?: string) => {
-    const newAnnouncement = await AnnouncementApi.create(text, type, author, classId);
-    setAnnouncements((prev) => [newAnnouncement, ...prev]);
-    setCoordinatorSummary((prev) =>
-      prev
-        ? {
-            ...prev,
-            announcements: [newAnnouncement, ...prev.announcements].slice(0, 5),
-          }
-        : prev
-    );
-  };
-
-  const updateAnnouncement = async (id: number, text: string, type: AnnouncementType, classId?: string) => {
-    const updated = await AnnouncementApi.update(id, text, type, classId);
-    setAnnouncements((prev) => prev.map((a) => (a.id === id ? updated : a)));
-    setCoordinatorSummary((prev) =>
-      prev
-        ? {
-            ...prev,
-            announcements: prev.announcements.map((a) => (a.id === id ? updated : a)),
-          }
-        : prev
-    );
-  };
-
-  const deleteAnnouncement = async (id: number) => {
-    await AnnouncementApi.delete(id);
-    setAnnouncements((prev) => prev.filter((a) => a.id !== id));
-    setCoordinatorSummary((prev) =>
-      prev
-        ? {
-            ...prev,
-            announcements: prev.announcements.filter((a) => a.id !== id),
-          }
-        : prev
-    );
-  };
-
-  const addActivity = async (studentId: string, text: string, mood: MoodType) => {
-    const newActivity = await ActivityApi.create(studentId, text, mood);
-    setActivities((prev) => [newActivity, ...prev]);
-  };
-
-  const editActivity = async (id: number, text: string, mood: MoodType) => {
-    const updated = await ActivityApi.update(id, text, mood);
-    setActivities((prev) => prev.map((activity) => (activity.id === id ? updated : activity)));
-  };
-
-  const deleteActivity = async (id: number) => {
-    await ActivityApi.delete(id);
-    setActivities((prev) => prev.filter((activity) => activity.id !== id));
-  };
-
-  const updateAttendance = async (studentId: string, status: AttendanceStatus, date: string) => {
-    const updatedRecord = await AttendanceApi.update(studentId, status, date);
-    setAttendance((prev) => {
-      const filtered = prev.filter((entry) => !(entry.studentId === studentId && entry.date === date));
-      return [...filtered, updatedRecord];
-    });
-  };
-
-  const sendMessage = async (toId: string, text: string, image?: string) => {
-    const newMessage = await MessageApi.send(toId, text, image);
-    setMessages((prev) => [...prev, newMessage]);
-  };
-
-  const sendBroadcastMessage = async (text: string, image?: string) => {
-    const newMessage = await MessageApi.sendBroadcast(text, image);
-    setBroadcastMessages((prev) => [newMessage, ...prev]);
-  };
-
-  const createTeacher = async (payload: TeacherPayload) => {
-    const created = await TeacherApi.create(payload);
-    setAllUsers((prev) => [...prev, created].sort((a, b) => a.name.localeCompare(b.name)));
-    syncTeacherAssignments(created.id, created.classIds ?? payload.classIds);
-    setCoordinatorSummary((prev) => (prev ? { ...prev, totalTeachers: prev.totalTeachers + 1 } : prev));
-  };
-
-  const updateTeacher = async (id: string, payload: UpdateTeacherPayload) => {
-    const updated = await TeacherApi.update(id, payload);
-    setAllUsers((prev) => prev.map((entry) => (entry.id === id ? updated : entry)));
-    syncTeacherAssignments(updated.id, updated.classIds ?? payload.classIds);
-  };
-
-  const updateUserProfile = async (id: string, payload: { name: string; phone: string; password?: string; avatar?: string }) => {
-    const updated = await UserApi.updateProfile(id, payload);
-    setUser(updated);
+  // Special update handler to sync local user state
+  const handleUpdateUserProfile = async (id: string, payload: any) => {
+    const updated = await updateUserProfile(id, payload);
     if (updated.role === 'teacher' || updated.role === 'coordinator') {
-      setAllUsers((prev) => prev.map((entry) => (entry.id === id ? updated : entry)));
+      dataService.setAllUsers((prev) => prev.map((u) => (u.id === id ? updated : u)));
     }
   };
 
-  const createStudent = async (payload: StudentPayload) => {
-    const created = await StudentApi.create(payload);
-    setStudents((prev) => [...prev, created].sort((a, b) => a.name.localeCompare(b.name)));
-    setCoordinatorSummary((prev) => (prev ? { ...prev, totalChildren: prev.totalChildren + 1 } : prev));
-  };
-
-  const updateStudent = async (id: string, payload: StudentPayload) => {
-    const updated = await StudentApi.update(id, payload);
-    setStudents((prev) => prev.map((entry) => (entry.id === id ? updated : entry)));
-    setSelectedChild((prev) => (prev?.id === id ? updated : prev));
-  };
-
-  const createClass = async (payload: ClassPayload) => {
-    const created = await ClassApi.create(payload);
-    setClasses((prev) => {
-      const nextClasses = [...prev, created].sort((a, b) => a.name.localeCompare(b.name));
-      syncTeacherClassIds(Object.fromEntries(nextClasses.map((entry) => [entry.id, entry.teacherIds ?? []])));
-      return nextClasses;
-    });
-  };
-
-  const updateClass = async (id: string, payload: ClassPayload) => {
-    const updated = await ClassApi.update(id, payload);
-    setClasses((prev) => {
-      const nextClasses = prev.map((entry) => (entry.id === id ? updated : entry));
-      syncTeacherClassIds(Object.fromEntries(nextClasses.map((entry) => [entry.id, entry.teacherIds ?? []])));
-      return nextClasses;
-    });
-  };
-
-  const deleteTeacher = async (id: string) => {
-    await TeacherApi.delete(id);
-    setAllUsers((prev) => prev.filter((entry) => entry.id !== id));
-    setCoordinatorSummary((prev) => (prev ? { ...prev, totalTeachers: Math.max(0, prev.totalTeachers - 1) } : prev));
-  };
-
-  const deleteStudent = async (id: string) => {
-    await StudentApi.delete(id);
-    setStudents((prev) => prev.filter((entry) => entry.id !== id));
-    setCoordinatorSummary((prev) => (prev ? { ...prev, totalChildren: Math.max(0, prev.totalChildren - 1) } : prev));
-  };
-
-  const deleteClass = async (id: string) => {
-    await ClassApi.delete(id);
-    setClasses((prev) => prev.filter((entry) => entry.id !== id));
-  };
-
-  const createRoutine = async (payload: RoutinePayload) => {
-    const created = await RoutineApi.create(payload);
-    setRoutines((prev) =>
-      [...prev, created].sort((a, b) =>
-        `${a.dayOfWeek}-${a.startTime}-${a.id}`.localeCompare(`${b.dayOfWeek}-${b.startTime}-${b.id}`)
-      )
-    );
-  };
-
-  const updateRoutine = async (id: number, payload: RoutinePayload) => {
-    const updated = await RoutineApi.update(id, payload);
-    setRoutines((prev) =>
-      prev
-        .map((entry) => (entry.id === id ? updated : entry))
-        .sort((a, b) => `${a.dayOfWeek}-${a.startTime}-${a.id}`.localeCompare(`${b.dayOfWeek}-${b.startTime}-${b.id}`))
-    );
-  };
-
-  const deleteRoutine = async (id: number) => {
-    await RoutineApi.delete(id);
-    setRoutines((prev) => prev.filter((entry) => entry.id !== id));
+  const handleUpdateStudent = async (id: string, payload: any) => {
+    await crudService.updateStudent(id, payload);
+    const updated = { ...dataService.students.find(s => s.id === id), ...payload };
+    setSelectedChild(prev => prev?.id === id ? updated : prev);
   };
 
   return (
@@ -489,47 +170,50 @@ export function AppProvider({ children }: { children: ReactNode }) {
         token,
         authLoading,
         view,
-        announcements,
-        activities,
-        attendance,
-        messages,
-        broadcastMessages,
-        allUsers,
-        students,
-        classes,
-        routines,
+        setView,
         selectedChild,
+        setSelectedChild,
         selectedClass,
+        setSelectedClass,
         selectedDate,
-        coordinatorSummary,
+        setSelectedDate,
+        // Data from dataService
+        announcements: dataService.announcements,
+        activities: dataService.activities,
+        attendance: dataService.attendance,
+        messages: dataService.messages,
+        broadcastMessages: dataService.broadcastMessages,
+        allUsers: dataService.allUsers,
+        students: dataService.students,
+        classes: dataService.classes,
+        routines: dataService.routines,
+        coordinatorSummary: dataService.coordinatorSummary,
+        addAnnouncement: dataService.addAnnouncement,
+        updateAnnouncement: dataService.updateAnnouncement,
+        deleteAnnouncement: dataService.deleteAnnouncement,
+        addActivity: dataService.addActivity,
+        editActivity: dataService.editActivity,
+        deleteActivity: dataService.deleteActivity,
+        updateAttendance: dataService.updateAttendance,
+        sendMessage: dataService.sendMessage,
+        sendBroadcastMessage: dataService.sendBroadcastMessage,
+        // Data from crudService
+        createTeacher: crudService.createTeacher,
+        updateTeacher: crudService.updateTeacher,
+        deleteTeacher: crudService.deleteTeacher,
+        createStudent: crudService.createStudent,
+        deleteStudent: crudService.deleteStudent,
+        createClass: crudService.createClass,
+        updateClass: crudService.updateClass,
+        deleteClass: crudService.deleteClass,
+        createRoutine: crudService.createRoutine,
+        updateRoutine: crudService.updateRoutine,
+        deleteRoutine: crudService.deleteRoutine,
+        // Overridden/Auth methods
         login,
         logout,
-        setView,
-        setSelectedChild,
-        setSelectedClass,
-        setSelectedDate,
-        addAnnouncement,
-        updateAnnouncement,
-        deleteAnnouncement,
-        addActivity,
-        editActivity,
-        deleteActivity,
-        updateAttendance,
-        sendMessage,
-        sendBroadcastMessage,
-        createTeacher,
-        updateTeacher,
-        updateUserProfile,
-        createStudent,
-        updateStudent,
-        createClass,
-        updateClass,
-        createRoutine,
-        updateRoutine,
-        deleteRoutine,
-        deleteTeacher,
-        deleteStudent,
-        deleteClass,
+        updateUserProfile: handleUpdateUserProfile,
+        updateStudent: handleUpdateStudent,
       }}
     >
       {children}
@@ -537,10 +221,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
   );
 }
 
-export function useAppContext(): AppContextValue {
+export function useAppContext() {
   const ctx = useContext(AppContext);
-  if (!ctx) {
-    throw new Error('useAppContext must be used within AppProvider');
-  }
+  if (!ctx) throw new Error('useAppContext must be used within AppProvider');
   return ctx;
 }

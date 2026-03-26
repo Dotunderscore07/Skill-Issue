@@ -13,8 +13,9 @@ interface MessagingSystemProps {
 }
 
 export function MessagingSystem({ user, messages, onSend }: MessagingSystemProps) {
-  const { allUsers, students } = useAppContext();
-  const [selectedThread, setSelectedThread] = useState<string | null>(null);
+  const { allUsers, students, classes, sendBroadcastMessage } = useAppContext();
+  const [selectedThreadId, setSelectedThreadId] = useState<string | null>(null);
+  const [selectedThreadType, setSelectedThreadType] = useState<'direct' | 'broadcast'>('direct');
   const [newMessage, setNewMessage] = useState('');
   const [attachedImage, setAttachedImage] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
@@ -27,6 +28,8 @@ export function MessagingSystem({ user, messages, onSend }: MessagingSystemProps
         .map((student) => student.classId)
     )
   );
+
+  const teacherClasses = classes.filter((c) => (user.classIds ?? []).includes(c.id));
 
   const teacherStudentParentIds = Array.from(
     new Set(
@@ -45,8 +48,10 @@ export function MessagingSystem({ user, messages, onSend }: MessagingSystemProps
   useEffect(() => {
     const historicalPartnerIds = new Set<string>();
     messages.forEach((message) => {
-      if (message.fromId === user.id && message.toId) historicalPartnerIds.add(message.toId);
-      if (message.toId === user.id) historicalPartnerIds.add(message.fromId);
+      if (message.kind === 'direct') {
+        if (message.fromId === user.id && message.toId) historicalPartnerIds.add(message.toId);
+        if (message.toId === user.id) historicalPartnerIds.add(message.fromId);
+      }
     });
 
     const historicalPartners = allUsers.filter((entry) => historicalPartnerIds.has(entry.id));
@@ -59,13 +64,24 @@ export function MessagingSystem({ user, messages, onSend }: MessagingSystemProps
     ? availableToSearch.filter((entry) => entry.name.toLowerCase().includes(searchQuery.toLowerCase()))
     : [];
 
-  const threadMessages = messages.filter(
-    (message) =>
-      (message.fromId === user.id && message.toId === selectedThread) ||
-      (message.fromId === selectedThread && message.toId === user.id)
-  );
+  const threadMessages = messages.filter((message) => {
+    if (selectedThreadType === 'broadcast') {
+      return message.kind === 'broadcast' && (message.toId === selectedThreadId || (selectedThreadId === 'global' && !message.toId));
+    }
+    return (
+      message.kind === 'direct' &&
+      ((message.fromId === user.id && message.toId === selectedThreadId) ||
+       (message.fromId === selectedThreadId && message.toId === user.id))
+    );
+  });
 
-  const chatPartner = allUsers.find((entry) => entry.id === selectedThread);
+  const chatPartner = selectedThreadType === 'direct' 
+    ? allUsers.find((entry) => entry.id === selectedThreadId)
+    : null;
+    
+  const broadcastThread = selectedThreadType === 'broadcast'
+    ? (selectedThreadId === 'global' ? { name: 'Global Broadcast' } : teacherClasses.find(c => c.id === selectedThreadId))
+    : null;
 
   const handleImageChange = (file: File | null) => {
     if (!file) return;
@@ -78,18 +94,31 @@ export function MessagingSystem({ user, messages, onSend }: MessagingSystemProps
 
   const handleSend = async (event: React.FormEvent) => {
     event.preventDefault();
-    if ((!newMessage.trim() && !attachedImage) || !selectedThread) return;
-    await onSend(selectedThread, newMessage, attachedImage);
+    if ((!newMessage.trim() && !attachedImage) || !selectedThreadId) return;
+    
+    if (selectedThreadType === 'broadcast') {
+      await sendBroadcastMessage(newMessage, attachedImage, selectedThreadId === 'global' ? undefined : selectedThreadId);
+    } else {
+      await onSend(selectedThreadId, newMessage, attachedImage);
+    }
+    
     setNewMessage('');
     setAttachedImage('');
   };
 
   const handleSelectUser = (partner: User) => {
-    setSelectedThread(partner.id);
+    setSelectedThreadId(partner.id);
+    setSelectedThreadType('direct');
     setSearchQuery('');
     if (!activeThreads.find((entry) => entry.id === partner.id)) {
       setActiveThreads((prev) => [...prev, partner]);
     }
+  };
+
+  const handleSelectBroadcast = (classId: string) => {
+    setSelectedThreadId(classId);
+    setSelectedThreadType('broadcast');
+    setSearchQuery('');
   };
 
   return (
@@ -138,56 +167,96 @@ export function MessagingSystem({ user, messages, onSend }: MessagingSystemProps
               )}
             </div>
           ) : (
-            <>
-              {activeThreads.length > 0 ? activeThreads.map((entry) => (
-                <button
-                  key={entry.id}
-                  onClick={() => setSelectedThread(entry.id)}
-                  className={`w-full text-left p-4 flex items-center gap-3 hover:bg-white transition-colors border-b border-gray-100 ${
-                    selectedThread === entry.id ? 'bg-white border-l-4 border-l-indigo-500' : ''
-                  }`}
-                >
-                  {entry.avatar && entry.avatar.length > 5 ? (
-                    <img src={entry.avatar} alt={entry.name} className="w-10 h-10 rounded-full object-cover shrink-0" />
-                  ) : (
-                    <span className="w-10 h-10 rounded-full bg-indigo-100 text-indigo-700 font-bold flex items-center justify-center shrink-0">
-                      {entry.avatar || entry.name.charAt(0)}
-                    </span>
-                  )}
-                  <div>
-                    <p className="font-semibold text-sm text-gray-900">{entry.name}</p>
-                    <p className="text-xs text-gray-500 truncate w-40">
-                      {messages.filter((message) => message.fromId === entry.id || message.toId === entry.id).pop()?.text || (messages.filter((message) => message.fromId === entry.id || message.toId === entry.id).pop()?.image ? 'Photo' : 'New conversation')}
-                    </p>
-                  </div>
-                </button>
-              )) : (
-                <div className="p-8 text-center space-y-2">
-                  <div className="bg-gray-100 w-12 h-12 rounded-full flex items-center justify-center mx-auto text-gray-400">
-                    <UserIcon size={20} />
-                  </div>
-                  <p className="text-sm text-gray-500">No active chats.</p>
-                  <p className="text-xs text-gray-400">Search for a {user.role === 'teacher' ? 'parent' : 'teacher'} to start chatting.</p>
+            <div className="flex flex-col h-full">
+              {user.role === 'teacher' && teacherClasses.length > 0 && (
+                <div className="p-2 border-b border-gray-100">
+                  <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider px-2 mb-1">Broadcast Groups</p>
+                  {teacherClasses.map((cls) => (
+                    <button
+                      key={cls.id}
+                      onClick={() => handleSelectBroadcast(cls.id)}
+                      className={`w-full text-left p-3 flex items-center gap-3 hover:bg-white rounded-lg transition-colors ${
+                        selectedThreadId === cls.id && selectedThreadType === 'broadcast' ? 'bg-white ring-1 ring-indigo-500' : ''
+                      }`}
+                    >
+                      <span className="w-10 h-10 rounded-full bg-orange-100 text-orange-700 font-bold flex items-center justify-center shrink-0">
+                        BC
+                      </span>
+                      <div>
+                        <p className="font-semibold text-sm text-gray-900">Broadcast: {cls.name}</p>
+                        <p className="text-xs text-gray-500 italic">Broadcast to all parents</p>
+                      </div>
+                    </button>
+                  ))}
                 </div>
               )}
-            </>
+              
+              <div className="flex-1">
+                <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider px-4 mt-4 mb-1">Direct Messages</p>
+                {activeThreads.length > 0 ? activeThreads.map((entry) => (
+                  <button
+                    key={entry.id}
+                    onClick={() => {
+                      setSelectedThreadId(entry.id);
+                      setSelectedThreadType('direct');
+                    }}
+                    className={`w-full text-left p-4 flex items-center gap-3 hover:bg-white transition-colors border-b border-gray-100 ${
+                      selectedThreadId === entry.id && selectedThreadType === 'direct' ? 'bg-white border-l-4 border-l-indigo-500' : ''
+                    }`}
+                  >
+                    {entry.avatar && entry.avatar.length > 5 ? (
+                      <img src={entry.avatar} alt={entry.name} className="w-10 h-10 rounded-full object-cover shrink-0" />
+                    ) : (
+                      <span className="w-10 h-10 rounded-full bg-indigo-100 text-indigo-700 font-bold flex items-center justify-center shrink-0">
+                        {entry.avatar || entry.name.charAt(0)}
+                      </span>
+                    )}
+                    <div>
+                      <p className="font-semibold text-sm text-gray-900">{entry.name}</p>
+                      <p className="text-xs text-gray-500 truncate w-40">
+                        {messages.filter((message) => message.kind === 'direct' && (message.fromId === entry.id || message.toId === entry.id)).pop()?.text || 'New conversation'}
+                      </p>
+                    </div>
+                  </button>
+                )) : (
+                  <div className="p-8 text-center space-y-2">
+                    <div className="bg-gray-100 w-12 h-12 rounded-full flex items-center justify-center mx-auto text-gray-400">
+                      <UserIcon size={20} />
+                    </div>
+                    <p className="text-sm text-gray-500">No active chats.</p>
+                    <p className="text-xs text-gray-400">Search for a {user.role === 'teacher' ? 'parent' : 'teacher'} to start chatting.</p>
+                  </div>
+                )}
+              </div>
+            </div>
           )}
         </div>
       </div>
 
       <div className="flex-1 flex flex-col">
-        {chatPartner ? (
+        {(chatPartner || broadcastThread) ? (
           <>
             <div className="p-4 border-b border-gray-100 flex justify-between items-center bg-white shadow-sm z-10">
               <div className="flex items-center gap-3">
-                {chatPartner.avatar && chatPartner.avatar.length > 5 ? (
-                  <img src={chatPartner.avatar} alt={chatPartner.name} className="w-10 h-10 rounded-full object-cover shrink-0" />
+                {selectedThreadType === 'direct' ? (
+                  chatPartner?.avatar && chatPartner.avatar.length > 5 ? (
+                    <img src={chatPartner.avatar} alt={chatPartner.name} className="w-10 h-10 rounded-full object-cover shrink-0" />
+                  ) : (
+                    <span className="w-10 h-10 rounded-full bg-indigo-100 text-indigo-700 font-bold flex items-center justify-center shrink-0">
+                      {chatPartner?.avatar || chatPartner?.name.charAt(0)}
+                    </span>
+                  )
                 ) : (
-                  <span className="w-10 h-10 rounded-full bg-indigo-100 text-indigo-700 font-bold flex items-center justify-center shrink-0">
-                    {chatPartner.avatar || chatPartner.name.charAt(0)}
+                  <span className="w-10 h-10 rounded-full bg-orange-100 text-orange-700 font-bold flex items-center justify-center shrink-0">
+                    BC
                   </span>
                 )}
-                <span className="font-bold text-gray-800">{chatPartner.name}</span>
+                <span className="font-bold text-gray-800">
+                  {selectedThreadType === 'direct' ? chatPartner?.name : `Broadcast: ${broadcastThread?.name}`}
+                </span>
+                {selectedThreadType === 'broadcast' && (
+                  <span className="px-2 py-0.5 bg-orange-50 text-orange-600 text-[10px] font-bold rounded uppercase">Class Broadcast</span>
+                )}
               </div>
             </div>
 
@@ -203,6 +272,9 @@ export function MessagingSystem({ user, messages, onSend }: MessagingSystemProps
                           : 'bg-white text-gray-800 border border-gray-100 rounded-tl-none'
                       }`}
                     >
+                      {!isMe && message.kind === 'broadcast' && (
+                        <p className="text-[10px] font-bold text-indigo-400 mb-1">Teacher</p>
+                      )}
                       {message.text && <p className="text-sm whitespace-pre-wrap">{message.text}</p>}
                       {message.image && (
                         <img src={message.image} alt="Chat attachment" className="mt-2 rounded-xl max-h-64 object-cover" />
@@ -216,7 +288,9 @@ export function MessagingSystem({ user, messages, onSend }: MessagingSystemProps
               })}
               {threadMessages.length === 0 && (
                 <div className="text-center text-gray-400 mt-10 text-sm">
-                  Start the conversation with {chatPartner.name}...
+                  {selectedThreadType === 'direct' 
+                    ? `Start the conversation with ${chatPartner?.name}...`
+                    : `Post a broadcast to all parents in ${broadcastThread?.name}...`}
                 </div>
               )}
             </div>
@@ -230,7 +304,7 @@ export function MessagingSystem({ user, messages, onSend }: MessagingSystemProps
               <textarea
                 value={newMessage}
                 onChange={(e) => setNewMessage(e.target.value)}
-                placeholder="Type a message..."
+                placeholder={selectedThreadType === 'broadcast' ? "Type a broadcast message to all parents..." : "Type a message..."}
                 rows={3}
                 className="w-full px-4 py-3 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 resize-none"
               />
@@ -240,8 +314,8 @@ export function MessagingSystem({ user, messages, onSend }: MessagingSystemProps
                   <span>Add Photo</span>
                   <input type="file" accept="image/png, image/jpeg, image/jpg, image/webp" className="hidden" onChange={(e) => handleImageChange(e.target.files?.[0] ?? null)} />
                 </label>
-                <Button type="submit" className="min-w-24">
-                  <Send size={18} /> Send
+                <Button type="submit" className="min-w-24 bg-indigo-600 hover:bg-indigo-700">
+                  <Send size={18} /> {selectedThreadType === 'broadcast' ? 'Broadcast' : 'Send'}
                 </Button>
               </div>
             </form>
@@ -252,7 +326,7 @@ export function MessagingSystem({ user, messages, onSend }: MessagingSystemProps
               <Send size={40} />
             </div>
             <h3 className="text-lg font-bold text-gray-700 mb-1">Your Inbox</h3>
-            <p className="text-sm max-w-xs">Select a teacher or parent from the list or use search to find someone new.</p>
+            <p className="text-sm max-w-xs">Select a teacher, parent, or broadcast group from the list.</p>
           </div>
         )}
       </div>

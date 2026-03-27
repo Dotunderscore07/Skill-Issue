@@ -12,24 +12,6 @@ export class MessageService {
   static async getThread(userId: string, filters: { partnerId?: string; kind?: string }) {
     const { partnerId, kind } = filters;
 
-    if (kind === 'broadcast') {
-      const result = await query(
-        `
-          SELECT m.*, u.name as "fromName"
-          FROM messages m
-          LEFT JOIN users u ON u.id = m."fromId"
-          WHERE m.kind = 'broadcast'
-            AND (m."toId" IS NULL OR m."toId" IN (
-              SELECT class_id FROM class_teachers WHERE teacher_id = $1
-              UNION
-              SELECT "classId" FROM students WHERE parentId = $1
-            ))
-          ORDER BY m.id DESC
-        `,
-        [userId]
-      );
-      return result.rows.map(mapMessageRow) as IMessage[];
-    }
 
     if (partnerId) {
       const result = await query(
@@ -58,17 +40,17 @@ export class MessageService {
     return result.rows.map(mapMessageRow) as IMessage[];
   }
 
-  static async send(data: { fromId: string; toId?: string | null; text?: string; image?: string; kind?: string }) {
-    const { fromId, toId, text = '', image = '', kind = 'direct' } = data;
+  static async send(data: { fromId: string; toId: string; text?: string; image?: string }) {
+    const { fromId, toId, text = '', image = '' } = data;
     const timestamp = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
 
     const result = await query(
       `
         INSERT INTO messages ("fromId", "toId", text, image, timestamp, read, kind)
-        VALUES ($1, $2, $3, $4, $5, false, $6)
+        VALUES ($1, $2, $3, $4, $5, false, 'direct')
         RETURNING *
       `,
-      [fromId, toId ?? null, encryptField(text), encryptField(image), timestamp, kind]
+      [fromId, toId, encryptField(text), encryptField(image), timestamp]
     );
     return mapMessageRow(result.rows[0]) as IMessage;
   }

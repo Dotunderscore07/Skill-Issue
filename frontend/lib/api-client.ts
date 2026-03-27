@@ -150,9 +150,6 @@ export class MessageApi {
     return request<Message[]>(`${BASE}/messages${queryString ? `?${queryString}` : ''}`);
   }
 
-  static getBroadcasts() {
-    return request<Message[]>(`${BASE}/messages?kind=broadcast`);
-  }
 
   static send(toId: string, text: string, image?: string) {
     return request<Message>(`${BASE}/messages`, {
@@ -161,12 +158,6 @@ export class MessageApi {
     });
   }
 
-  static sendBroadcast(text: string, image?: string, toId?: string) {
-    return request<Message>(`${BASE}/messages`, {
-      method: 'POST',
-      body: JSON.stringify({ toId: toId ?? null, text, image: image ?? '', kind: 'broadcast' satisfies MessageKind }),
-    });
-  }
 }
 
 export class StudentApi {

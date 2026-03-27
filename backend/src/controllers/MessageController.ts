@@ -18,10 +18,6 @@ export class MessageController {
 
   static async send(req: AuthRequest, res: Response) {
     try {
-      const { kind = 'direct' } = req.body;
-      if (kind === 'broadcast' && req.user?.role !== 'coordinator') {
-        return sendError(res, 'Forbidden', 403);
-      }
       const message = await MessageService.send({ ...req.body, fromId: req.user!.id });
       sendSuccess(res, message, 201);
     } catch (err) {

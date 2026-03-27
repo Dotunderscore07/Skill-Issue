@@ -36,7 +36,6 @@ interface AppContextValue {
   activities: Activity[];
   attendance: AttendanceRecord[];
   messages: Message[];
-  broadcastMessages: Message[];
   allUsers: User[];
   students: Student[];
   classes: Class[];
@@ -59,7 +58,6 @@ interface AppContextValue {
   deleteActivity: (id: number) => Promise<void>;
   updateAttendance: (studentId: string, status: AttendanceStatus, date: string) => Promise<void>;
   sendMessage: (toId: string, text: string, image?: string) => Promise<void>;
-  sendBroadcastMessage: (text: string, image?: string, classId?: string) => Promise<void>;
   createTeacher: (payload: any) => Promise<void>;
   updateTeacher: (id: string, payload: any) => Promise<void>;
   updateUserProfile: (id: string, payload: any) => Promise<void>;
@@ -144,7 +142,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     }
     setAuthLoading(true);
     dataService.loadAllData(user)
-      .then(() => hydrateSelections(user, dataService.students, dataService.classes))
+      .then((freshData) => hydrateSelections(user, freshData.students, freshData.classes))
       .catch((err) => console.error('Failed to load initial data:', err))
       .finally(() => setAuthLoading(false));
   }, [token, user, dataService.loadAllData, hydrateSelections, setAuthLoading]);
@@ -182,7 +180,6 @@ export function AppProvider({ children }: { children: ReactNode }) {
         activities: dataService.activities,
         attendance: dataService.attendance,
         messages: dataService.messages,
-        broadcastMessages: dataService.broadcastMessages,
         allUsers: dataService.allUsers,
         students: dataService.students,
         classes: dataService.classes,
@@ -196,7 +193,6 @@ export function AppProvider({ children }: { children: ReactNode }) {
         deleteActivity: dataService.deleteActivity,
         updateAttendance: dataService.updateAttendance,
         sendMessage: dataService.sendMessage,
-        sendBroadcastMessage: dataService.sendBroadcastMessage,
         // Data from crudService
         createTeacher: crudService.createTeacher,
         updateTeacher: crudService.updateTeacher,

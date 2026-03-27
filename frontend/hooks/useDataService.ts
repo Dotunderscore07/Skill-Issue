@@ -31,7 +31,6 @@ export function useDataService() {
   const [activities, setActivities] = useState<Activity[]>([]);
   const [attendance, setAttendance] = useState<AttendanceRecord[]>([]);
   const [messages, setMessages] = useState<Message[]>([]);
-  const [broadcastMessages, setBroadcastMessages] = useState<Message[]>([]);
   const [allUsers, setAllUsers] = useState<User[]>([]);
   const [students, setStudents] = useState<Student[]>([]);
   const [classes, setClasses] = useState<Class[]>([]);
@@ -41,7 +40,7 @@ export function useDataService() {
   const loadAllData = useCallback(async (activeUser: User) => {
     const shouldLoadRoutines = ['teacher', 'coordinator', 'parent', 'admin'].includes(activeUser.role);
     
-    const [anns, acts, atts, studs, clss, routinesData, allUsrs, directMessages, broadcasts] = await Promise.all([
+    const [anns, acts, atts, studs, clss, routinesData, allUsrs, directMessages] = await Promise.all([
       AnnouncementApi.getAll(),
       ActivityApi.getAll(),
       AttendanceApi.getAll(),
@@ -50,7 +49,6 @@ export function useDataService() {
       shouldLoadRoutines ? RoutineApi.getAll() : Promise.resolve([]),
       UserApi.getAll(),
       MessageApi.getAll(),
-      activeUser.role === 'coordinator' ? MessageApi.getBroadcasts() : Promise.resolve([]),
     ]);
 
     setAnnouncements(anns);
@@ -61,7 +59,6 @@ export function useDataService() {
     setRoutines(routinesData);
     setAllUsers(allUsrs);
     setMessages(directMessages);
-    setBroadcastMessages(broadcasts);
 
     if (activeUser.role === 'coordinator') {
       const summary = await DashboardApi.getCoordinatorSummary();
@@ -69,6 +66,17 @@ export function useDataService() {
     } else {
       setCoordinatorSummary(null);
     }
+
+    return {
+      announcements: anns,
+      activities: acts,
+      attendance: atts,
+      students: studs,
+      classes: clss,
+      routines: routinesData,
+      allUsers: allUsrs,
+      messages: directMessages,
+    };
   }, []);
 
   const addAnnouncement = useCallback(async (text: string, type: AnnouncementType, author: string, classId?: string) => {
@@ -135,11 +143,6 @@ export function useDataService() {
     setMessages((prev) => [...prev, newMessage]);
   }, []);
 
-  const sendBroadcastMessage = useCallback(async (text: string, image?: string, classId?: string) => {
-    const newMessage = await MessageApi.sendBroadcast(text, image, classId);
-    setBroadcastMessages((prev) => [newMessage, ...prev]);
-  }, []);
-
   // CRUD Helpers
   const clearAllData = useCallback(() => {
     setAnnouncements([]);
@@ -150,7 +153,6 @@ export function useDataService() {
     setRoutines([]);
     setAllUsers([]);
     setMessages([]);
-    setBroadcastMessages([]);
     setCoordinatorSummary(null);
   }, []);
 
@@ -159,7 +161,6 @@ export function useDataService() {
     activities, setActivities,
     attendance, setAttendance,
     messages, setMessages,
-    broadcastMessages, setBroadcastMessages,
     allUsers, setAllUsers,
     students, setStudents,
     classes, setClasses,
@@ -175,6 +176,5 @@ export function useDataService() {
     deleteActivity,
     updateAttendance,
     sendMessage,
-    sendBroadcastMessage,
   };
 }

@@ -118,8 +118,7 @@ export const initDb = async () => {
         id SERIAL PRIMARY KEY,
         date VARCHAR(50) NOT NULL,
         "studentId" VARCHAR(50) NOT NULL,
-        status VARCHAR(50) NOT NULL,
-        UNIQUE (date, "studentId")
+        status VARCHAR(50) NOT NULL
       );
 
       CREATE TABLE IF NOT EXISTS messages (
@@ -160,9 +159,9 @@ export const initDb = async () => {
       DO $$ 
       BEGIN 
         IF NOT EXISTS (
-          SELECT 1 FROM pg_constraint WHERE conname = 'attendance_records_date_studentId_key'
+          SELECT 1 FROM pg_constraint WHERE conname = 'attendance_records_date_studentid_key'
         ) THEN 
-          ALTER TABLE attendance_records ADD CONSTRAINT attendance_records_date_studentId_key UNIQUE (date, "studentId");
+          ALTER TABLE attendance_records ADD CONSTRAINT attendance_records_date_studentid_key UNIQUE (date, "studentId");
         END IF;
       END $$;
     `);

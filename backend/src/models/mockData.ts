@@ -99,16 +99,6 @@ export const INITIAL_MESSAGES: IMessage[] = [
     read: true,
     kind: 'direct',
   },
-  {
-    id: 3,
-    fromId: 'co1',
-    toId: null,
-    text: 'Welcome to KinderConnect. This is a coordinator broadcast message.',
-    image: '',
-    timestamp: '09:00 AM',
-    read: true,
-    kind: 'broadcast',
-  },
 ];
 
 export const INITIAL_ROUTINES: IRoutine[] = [

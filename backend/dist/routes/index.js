@@ -1,0 +1,28 @@
+"use strict";
+var __importDefault = (this && this.__importDefault) || function (mod) {
+    return (mod && mod.__esModule) ? mod : { "default": mod };
+};
+Object.defineProperty(exports, "__esModule", { value: true });
+const express_1 = require("express");
+const auth_routes_1 = __importDefault(require("./auth.routes"));
+const user_routes_1 = __importDefault(require("./user.routes"));
+const student_routes_1 = __importDefault(require("./student.routes"));
+const announcement_routes_1 = __importDefault(require("./announcement.routes"));
+const activity_routes_1 = __importDefault(require("./activity.routes"));
+const attendance_routes_1 = __importDefault(require("./attendance.routes"));
+const message_routes_1 = __importDefault(require("./message.routes"));
+const class_routes_1 = __importDefault(require("./class.routes"));
+const routine_routes_1 = __importDefault(require("./routine.routes"));
+const dashboard_routes_1 = __importDefault(require("./dashboard.routes"));
+const router = (0, express_1.Router)();
+router.use('/auth', auth_routes_1.default);
+router.use('/users', user_routes_1.default);
+router.use('/students', student_routes_1.default);
+router.use('/announcements', announcement_routes_1.default);
+router.use('/activities', activity_routes_1.default);
+router.use('/attendance', attendance_routes_1.default);
+router.use('/messages', message_routes_1.default);
+router.use('/classes', class_routes_1.default);
+router.use('/routines', routine_routes_1.default);
+router.use('/dashboard', dashboard_routes_1.default);
+exports.default = router;

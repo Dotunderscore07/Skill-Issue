@@ -1,12 +1,12 @@
 'use client';
 
 import { useState } from 'react';
-import { LoginScreen } from '../components/feature/LoginScreen';
-import { RegisterScreen } from '../components/feature/RegisterScreen';
-import { AuthenticatedLayout } from '../components/feature/AuthenticatedLayout';
-import { useAppContext } from '../modules/shared/context/AppContext';
+import { LoginScreen } from '../../components/feature/LoginScreen';
+import { RegisterScreen } from '../../components/feature/RegisterScreen';
+import { AuthenticatedLayout } from '../../components/feature/AuthenticatedLayout';
+import { useAppContext } from '../../modules/shared/context/AppContext';
 
-export default function Home() {
+export default function CatchAllPage() {
   const { user, authLoading } = useAppContext();
   const [isRegistering, setIsRegistering] = useState(false);
 
@@ -28,4 +28,3 @@ export default function Home() {
     <LoginScreen onToggleRegister={() => setIsRegistering(true)} />
   );
 }
-

@@ -2,7 +2,7 @@ export type UserRole = 'coordinator' | 'teacher' | 'parent';
 export type AttendanceStatus = 'present' | 'late' | 'absent' | 'unmarked';
 export type AnnouncementType = 'info' | 'urgent' | 'event';
 export type MoodType = 'happy' | 'neutral' | 'sad' | 'energetic';
-export type MessageKind = 'direct' | 'broadcast';
+export type MessageKind = 'direct';
 export type DayOfWeek = 'sunday' | 'monday' | 'tuesday' | 'wednesday' | 'thursday' | 'friday' | 'saturday';
 
 export interface IUser {

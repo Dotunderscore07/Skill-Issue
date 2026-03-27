@@ -1,0 +1,178 @@
+"use strict";
+var __importDefault = (this && this.__importDefault) || function (mod) {
+    return (mod && mod.__esModule) ? mod : { "default": mod };
+};
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.initDb = exports.query = exports.pool = void 0;
+const pg_1 = require("pg");
+const dotenv_1 = __importDefault(require("dotenv"));
+const bcrypt_1 = __importDefault(require("bcrypt"));
+const mockData_1 = require("../models/mockData");
+dotenv_1.default.config();
+const dbUrl = process.env.DATABASE_URL || 'postgres://postgres:MyDb0720@localhost:5432/kinderconnect';
+const parsedUrl = new URL(dbUrl);
+const dbName = parsedUrl.pathname.replace('/', '') || 'kinderconnect';
+parsedUrl.pathname = '/postgres';
+const defaultDbUrl = parsedUrl.toString();
+const query = async (text, params) => {
+    if (!exports.pool) {
+        throw new Error('Pool not initialized');
+    }
+    return exports.pool.query(text, params);
+};
+exports.query = query;
+const initDb = async () => {
+    try {
+        const client = new pg_1.Client({ connectionString: defaultDbUrl });
+        await client.connect();
+        const res = await client.query('SELECT datname FROM pg_catalog.pg_database WHERE datname = $1', [dbName]);
+        if (res.rowCount === 0) {
+            console.log(`Database '${dbName}' not found, creating it...`);
+            await client.query(`CREATE DATABASE "${dbName}"`);
+            console.log(`Database '${dbName}' created successfully.`);
+        }
+        else {
+            console.log(`Database '${dbName}' already exists.`);
+        }
+        await client.end();
+        exports.pool = new pg_1.Pool({ connectionString: dbUrl });
+        await exports.pool.query(`
+      CREATE TABLE IF NOT EXISTS users (
+        id VARCHAR(50) PRIMARY KEY,
+        name VARCHAR(255) NOT NULL,
+        phone VARCHAR(20) UNIQUE NOT NULL,
+        role VARCHAR(50) NOT NULL,
+        password VARCHAR(255) NOT NULL,
+        avatar TEXT NOT NULL DEFAULT ''
+      );
+      
+      ALTER TABLE users ALTER COLUMN avatar TYPE TEXT;
+
+      CREATE TABLE IF NOT EXISTS classes (
+        id VARCHAR(50) PRIMARY KEY,
+        name VARCHAR(255) NOT NULL
+      );
+
+      CREATE TABLE IF NOT EXISTS students (
+        id VARCHAR(50) PRIMARY KEY,
+        name VARCHAR(255) NOT NULL,
+        dob VARCHAR(20) NOT NULL,
+        photo TEXT NOT NULL DEFAULT '',
+        "classId" VARCHAR(50) REFERENCES classes(id) ON DELETE SET NULL
+      );
+
+      CREATE TABLE IF NOT EXISTS subjects (
+        id VARCHAR(50) PRIMARY KEY,
+        name VARCHAR(255) NOT NULL
+      );
+
+      CREATE TABLE IF NOT EXISTS class_teachers (
+        class_id VARCHAR(50) REFERENCES classes(id) ON DELETE CASCADE,
+        teacher_id VARCHAR(50) REFERENCES users(id) ON DELETE CASCADE,
+        PRIMARY KEY (class_id, teacher_id)
+      );
+
+      CREATE TABLE IF NOT EXISTS class_subjects (
+        class_id VARCHAR(50) REFERENCES classes(id) ON DELETE CASCADE,
+        subject_id VARCHAR(50) REFERENCES subjects(id) ON DELETE CASCADE,
+        PRIMARY KEY (class_id, subject_id)
+      );
+
+      CREATE TABLE IF NOT EXISTS parent_students (
+        parent_id VARCHAR(50) REFERENCES users(id) ON DELETE CASCADE,
+        student_id VARCHAR(50) REFERENCES students(id) ON DELETE CASCADE,
+        PRIMARY KEY (parent_id, student_id)
+      );
+
+      CREATE TABLE IF NOT EXISTS announcements (
+        id SERIAL PRIMARY KEY,
+        text TEXT NOT NULL,
+        date VARCHAR(50) NOT NULL,
+        author VARCHAR(255) NOT NULL,
+        type VARCHAR(50) NOT NULL,
+        "classId" VARCHAR(50) REFERENCES classes(id) ON DELETE SET NULL
+      );
+
+      CREATE TABLE IF NOT EXISTS activities (
+        id SERIAL PRIMARY KEY,
+        "studentId" VARCHAR(50) NOT NULL,
+        text TEXT NOT NULL,
+        date VARCHAR(50) NOT NULL,
+        mood VARCHAR(50) NOT NULL
+      );
+
+      CREATE TABLE IF NOT EXISTS attendance_records (
+        id SERIAL PRIMARY KEY,
+        date VARCHAR(50) NOT NULL,
+        "studentId" VARCHAR(50) NOT NULL,
+        status VARCHAR(50) NOT NULL
+      );
+
+      CREATE TABLE IF NOT EXISTS messages (
+        id SERIAL PRIMARY KEY,
+        "fromId" VARCHAR(50) NOT NULL,
+        "toId" VARCHAR(50),
+        text TEXT NOT NULL,
+        image TEXT NOT NULL DEFAULT '',
+        timestamp VARCHAR(50) NOT NULL,
+        read BOOLEAN DEFAULT false,
+        kind VARCHAR(50) NOT NULL DEFAULT 'direct'
+      );
+
+      CREATE TABLE IF NOT EXISTS routines (
+        id SERIAL PRIMARY KEY,
+        "classId" VARCHAR(50) NOT NULL REFERENCES classes(id) ON DELETE CASCADE,
+        "teacherId" VARCHAR(50) NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        "dayOfWeek" VARCHAR(20) NOT NULL,
+        "startTime" VARCHAR(5) NOT NULL,
+        "endTime" VARCHAR(5) NOT NULL,
+        title VARCHAR(255) NOT NULL
+      );
+    `);
+        const salt = await bcrypt_1.default.genSalt(10);
+        const defaultPassword = await bcrypt_1.default.hash('123', salt);
+        for (const user of mockData_1.MOCK_USERS) {
+            await exports.pool.query('INSERT INTO users (id, name, phone, role, password, avatar) VALUES ($1, $2, $3, $4, $5, $6) ON CONFLICT (id) DO NOTHING', [user.id, user.name, user.phone, user.role, defaultPassword, user.avatar]);
+        }
+        for (const cls of mockData_1.MOCK_CLASSES) {
+            await exports.pool.query('INSERT INTO classes (id, name) VALUES ($1, $2) ON CONFLICT (id) DO NOTHING', [cls.id, cls.name]);
+        }
+        for (const student of mockData_1.MOCK_STUDENTS) {
+            await exports.pool.query('INSERT INTO students (id, name, dob, photo, "classId") VALUES ($1, $2, $3, $4, $5) ON CONFLICT (id) DO NOTHING', [student.id, student.name, student.dob, student.photo, student.classId]);
+        }
+        for (const user of mockData_1.MOCK_USERS.filter((entry) => entry.role === 'teacher')) {
+            for (const classId of user.classIds ?? []) {
+                await exports.pool.query('INSERT INTO class_teachers (class_id, teacher_id) VALUES ($1, $2) ON CONFLICT DO NOTHING', [classId, user.id]);
+            }
+        }
+        for (const student of mockData_1.MOCK_STUDENTS) {
+            if (student.parentId) {
+                await exports.pool.query('INSERT INTO parent_students (parent_id, student_id) VALUES ($1, $2) ON CONFLICT DO NOTHING', [student.parentId, student.id]);
+            }
+        }
+        for (const ann of mockData_1.INITIAL_ANNOUNCEMENTS) {
+            await exports.pool.query('INSERT INTO announcements (id, text, date, author, type, "classId") VALUES ($1, $2, $3, $4, $5, $6) ON CONFLICT (id) DO NOTHING', [ann.id, ann.text, ann.date, ann.author, ann.type, ann.classId ?? null]);
+        }
+        for (const act of mockData_1.INITIAL_ACTIVITIES) {
+            await exports.pool.query('INSERT INTO activities (id, "studentId", text, date, mood) VALUES ($1, $2, $3, $4, $5) ON CONFLICT (id) DO NOTHING', [act.id, act.studentId, act.text, act.date, act.mood]);
+        }
+        for (const att of mockData_1.INITIAL_ATTENDANCE) {
+            await exports.pool.query('INSERT INTO attendance_records (date, "studentId", status) VALUES ($1, $2, $3)', [att.date, att.studentId, att.status]);
+        }
+        for (const msg of mockData_1.INITIAL_MESSAGES) {
+            await exports.pool.query('INSERT INTO messages (id, "fromId", "toId", text, image, timestamp, read, kind) VALUES ($1, $2, $3, $4, $5, $6, $7, $8) ON CONFLICT (id) DO NOTHING', [msg.id, msg.fromId, msg.toId, msg.text, msg.image ?? '', msg.timestamp, msg.read, msg.kind]);
+        }
+        for (const routine of mockData_1.INITIAL_ROUTINES) {
+            await exports.pool.query('INSERT INTO routines (id, "classId", "teacherId", "dayOfWeek", "startTime", "endTime", title) VALUES ($1, $2, $3, $4, $5, $6, $7) ON CONFLICT (id) DO NOTHING', [routine.id, routine.classId, routine.teacherId, routine.dayOfWeek, routine.startTime, routine.endTime, routine.title]);
+        }
+        await exports.pool.query(`SELECT setval('activities_id_seq', COALESCE((SELECT MAX(id) FROM activities), 1));`);
+        await exports.pool.query(`SELECT setval('announcements_id_seq', COALESCE((SELECT MAX(id) FROM announcements), 1));`);
+        await exports.pool.query(`SELECT setval('messages_id_seq', COALESCE((SELECT MAX(id) FROM messages), 1));`);
+        await exports.pool.query(`SELECT setval('routines_id_seq', COALESCE((SELECT MAX(id) FROM routines), 1));`);
+        console.log('Database initialized with mock data successfully');
+    }
+    catch (error) {
+        console.error('Error initializing database:', error);
+    }
+};
+exports.initDb = initDb;

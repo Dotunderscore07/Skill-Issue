@@ -227,7 +227,7 @@ export function AttendanceView({ user, attendance, onUpdateAttendance }: Attenda
                   <td className="p-4">
                     <div className="flex gap-2 justify-end">
                       <button
-                        onClick={() => !isReadOnly && onUpdateAttendance(student.id, 'present', selectedDate)}
+                        onClick={() => !isReadOnly && status !== 'present' && onUpdateAttendance(student.id, 'present', selectedDate)}
                         disabled={isReadOnly}
                         className={`p-2 rounded-lg border flex items-center gap-1 transition-all ${
                           status === 'present'
@@ -239,7 +239,7 @@ export function AttendanceView({ user, attendance, onUpdateAttendance }: Attenda
                         <span className="text-xs font-medium">Present</span>
                       </button>
                       <button
-                        onClick={() => !isReadOnly && onUpdateAttendance(student.id, 'late', selectedDate)}
+                        onClick={() => !isReadOnly && status !== 'late' && onUpdateAttendance(student.id, 'late', selectedDate)}
                         disabled={isReadOnly}
                         className={`p-2 rounded-lg border flex items-center gap-1 transition-all ${
                           status === 'late'
@@ -251,7 +251,7 @@ export function AttendanceView({ user, attendance, onUpdateAttendance }: Attenda
                         <span className="text-xs font-medium">Late</span>
                       </button>
                       <button
-                        onClick={() => !isReadOnly && onUpdateAttendance(student.id, 'absent', selectedDate)}
+                        onClick={() => !isReadOnly && status !== 'absent' && onUpdateAttendance(student.id, 'absent', selectedDate)}
                         disabled={isReadOnly}
                         className={`p-2 rounded-lg border flex items-center gap-1 transition-all ${
                           status === 'absent'

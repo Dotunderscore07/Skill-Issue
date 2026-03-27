@@ -20,6 +20,7 @@ export const MOCK_STUDENTS: IStudent[] = [
   { id: 's1', name: 'Alex Smith', dob: '2019-03-14', classId: 'c1', photo: '', parentId: 'p1' },
   { id: 's2', name: 'Bella Garcia', dob: '2019-07-02', classId: 'c1', photo: '', parentId: 'p2' },
   { id: 's3', name: 'Charlie Brown', dob: '2020-01-19', classId: 'c1', photo: '', parentId: 'p1' },
+  { id: 's4', name: 'Benjamin Harris', dob: '2019-11-05', classId: 'c1', photo: '', parentId: 'p2' },
 ];
 
 export const MOCK_CLASSES: IClass[] = [
@@ -97,16 +98,6 @@ export const INITIAL_MESSAGES: IMessage[] = [
     timestamp: '10:35 AM',
     read: true,
     kind: 'direct',
-  },
-  {
-    id: 3,
-    fromId: 'co1',
-    toId: null,
-    text: 'Welcome to KinderConnect. This is a coordinator broadcast message.',
-    image: '',
-    timestamp: '09:00 AM',
-    read: true,
-    kind: 'broadcast',
   },
 ];
 

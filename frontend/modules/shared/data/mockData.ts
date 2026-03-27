@@ -56,5 +56,4 @@ export const INITIAL_ATTENDANCE: AttendanceRecord[] = [
 export const INITIAL_MESSAGES: Message[] = [
   { id: 1, fromId: 'p1', toId: 't1', text: 'Hi Ms. Johnson, will Alex need boots for the trip?', image: '', timestamp: '10:30 AM', read: true, kind: 'direct' },
   { id: 2, fromId: 't1', toId: 'p1', text: 'Hi Mr. Smith! Yes, it might be muddy.', image: '', timestamp: '10:35 AM', read: true, kind: 'direct' },
-  { id: 3, fromId: 'co1', toId: null, text: 'Welcome to KinderConnect. This is a coordinator broadcast message.', image: '', timestamp: '09:00 AM', read: true, kind: 'broadcast' },
 ];

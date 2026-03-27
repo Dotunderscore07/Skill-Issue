@@ -1,9 +1,7 @@
-import express, { Router, Request, Response } from 'express';
+import express from 'express';
 import cors from 'cors';
 import cookieParser from 'cookie-parser';
-import { UserController, StudentController, AnnouncementController, ActivityController, AttendanceController, MessageController, ClassController, RoutineController, DashboardController } from './controllers';
-import { AuthController } from './controllers/AuthController';
-import { auth, authorizeRole } from './middlewares/auth';
+import routes from './routes';
 import { initDb } from './db';
 
 const app = express();
@@ -17,65 +15,8 @@ app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ extended: true, limit: '50mb' }));
 app.use(cookieParser());
 
-const router = Router();
-
-// Auth
-router.post('/auth/register', AuthController.register);
-router.post('/auth/login', AuthController.login);
-router.get('/auth/me', auth, AuthController.me);
-router.post('/auth/logout', AuthController.logout);
-
-// Users
-router.get('/users', auth, UserController.getAll);
-router.get('/users/:id', auth, UserController.getById);
-router.put('/users/:id', auth, UserController.updateProfile);
-router.post('/users/teachers', auth, authorizeRole('coordinator'), UserController.createTeacher);
-router.put('/users/teachers/:id', auth, authorizeRole('coordinator'), UserController.updateTeacher);
-router.delete('/users/teachers/:id', auth, authorizeRole('coordinator'), UserController.deleteTeacher);
-
-// Classes
-router.get('/classes', auth, ClassController.getAll);
-router.post('/classes', auth, authorizeRole('coordinator'), ClassController.create);
-router.put('/classes/:id', auth, authorizeRole('coordinator'), ClassController.update);
-router.delete('/classes/:id', auth, authorizeRole('coordinator'), ClassController.delete);
-
-// Routines
-router.get('/routines', auth, authorizeRole('teacher', 'coordinator', 'parent', 'admin'), RoutineController.getAll);
-router.post('/routines', auth, authorizeRole('coordinator'), RoutineController.create);
-router.put('/routines/:id', auth, authorizeRole('coordinator'), RoutineController.update);
-router.delete('/routines/:id', auth, authorizeRole('coordinator'), RoutineController.delete);
-
-// Students
-router.get('/students', auth, StudentController.getAll);
-router.post('/students', auth, authorizeRole('coordinator'), StudentController.create);
-router.put('/students/:studentId', auth, authorizeRole('coordinator', 'parent'), StudentController.update);
-router.put('/students/:studentId/link', auth, authorizeRole('teacher', 'coordinator', 'admin'), StudentController.linkParent);
-router.delete('/students/:studentId', auth, authorizeRole('coordinator'), StudentController.delete);
-
-// Announcements
-router.get('/announcements', auth, AnnouncementController.getAll);
-router.post('/announcements', auth, authorizeRole('teacher', 'coordinator', 'admin'), AnnouncementController.create);
-router.put('/announcements/:id', auth, authorizeRole('teacher', 'coordinator', 'admin'), AnnouncementController.update);
-router.delete('/announcements/:id', auth, authorizeRole('teacher', 'coordinator', 'admin'), AnnouncementController.delete);
-
-// Activities
-router.get('/activities', auth, ActivityController.getAll);
-router.post('/activities', auth, authorizeRole('teacher', 'coordinator', 'admin'), ActivityController.create);
-router.put('/activities/:id', auth, authorizeRole('teacher', 'coordinator', 'admin'), ActivityController.update);
-router.delete('/activities/:id', auth, authorizeRole('teacher', 'coordinator', 'admin'), ActivityController.delete);
-
-// Attendance
-router.get('/attendance', auth, AttendanceController.getAll);
-router.put('/attendance', auth, authorizeRole('teacher', 'coordinator', 'admin'), AttendanceController.update);
-
-// Messages
-router.get('/messages', auth, MessageController.getThread);
-router.post('/messages', auth, MessageController.send);
-
-// Coordinator dashboard
-router.get('/dashboard/coordinator', auth, authorizeRole('coordinator'), DashboardController.getCoordinatorSummary);
-
-app.use('/api', router);
+// Use the centralized routes
+app.use('/api', routes);
 
 initDb().then(() => {
   app.listen(PORT, () => {
